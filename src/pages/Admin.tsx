@@ -1,0 +1,756 @@
+import { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
+import { supabase } from "@/integrations/supabase/client";
+import { Button } from "@/components/ui/button";
+import { Card } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Badge } from "@/components/ui/badge";
+import { useToast } from "@/hooks/use-toast";
+import { ArrowLeft, Plus, Trash2, Edit } from "lucide-react";
+import logo from "@/assets/j-app-logo.jpg";
+
+export default function Admin() {
+  const navigate = useNavigate();
+  const { toast } = useToast();
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [passkey, setPasskey] = useState("");
+  const [drivers, setDrivers] = useState<any[]>([]);
+  const [passengers, setPassengers] = useState<any[]>([]);
+  const [tasks, setTasks] = useState<any[]>([]);
+  const [templates, setTemplates] = useState<any[]>([]);
+  const [settings, setSettings] = useState<any>({});
+  const [showTaskDialog, setShowTaskDialog] = useState(false);
+  const [showDriverDialog, setShowDriverDialog] = useState(false);
+  const [showPassengerDialog, setShowPassengerDialog] = useState(false);
+  const [editingTask, setEditingTask] = useState<any>(null);
+  const [editingDriver, setEditingDriver] = useState<any>(null);
+  const [editingPassenger, setEditingPassenger] = useState<any>(null);
+  const [taskForm, setTaskForm] = useState({
+    passenger_name: "",
+    pickup_location: "",
+    dropoff_location: "",
+    task_name: "",
+    notes: "",
+  });
+  const [driverForm, setDriverForm] = useState({
+    name: "",
+    email: "",
+    phone: "",
+    pin_password: "",
+  });
+  const [passengerForm, setPassengerForm] = useState({
+    name: "",
+    default_pickup_location: "",
+  });
+
+  useEffect(() => {
+    if (isAuthenticated) {
+      loadData();
+    }
+  }, [isAuthenticated]);
+
+  async function checkPasskey() {
+    const { data } = await supabase.from("app_settings").select("setting_value").eq("setting_key", "admin_passkey").single();
+
+    if (data && passkey === data.setting_value) {
+      setIsAuthenticated(true);
+      toast({ title: "Access granted" });
+    } else {
+      toast({ title: "Incorrect passkey", variant: "destructive" });
+    }
+  }
+
+  async function loadData() {
+    const [driversRes, passengersRes, tasksRes, templatesRes, settingsRes] = await Promise.all([
+      supabase.from("drivers").select("*").order("name"),
+      supabase.from("passengers").select("*").order("name"),
+      supabase.from("tasks").select("*").order("created_at", { ascending: false }),
+      supabase.from("message_templates").select("*").order("template_key"),
+      supabase.from("app_settings").select("*"),
+    ]);
+
+    setDrivers(driversRes.data || []);
+    setPassengers(passengersRes.data || []);
+    setTasks(tasksRes.data || []);
+    setTemplates(templatesRes.data || []);
+
+    const settingsMap: any = {};
+    (settingsRes.data || []).forEach((s) => {
+      settingsMap[s.setting_key] = s.setting_value;
+    });
+    setSettings(settingsMap);
+  }
+
+  async function createOrUpdateTask() {
+    const { passenger_name, pickup_location, dropoff_location, task_name, notes } = taskForm;
+    if (!passenger_name || !pickup_location || !dropoff_location) {
+      toast({ title: "Please fill all required fields", variant: "destructive" });
+      return;
+    }
+
+    if (editingTask) {
+      const { error } = await supabase
+        .from("tasks")
+        .update({ 
+          passenger_name,
+          pickup_location,
+          dropoff_location,
+          task_name, 
+          notes 
+        })
+        .eq("id", editingTask.id);
+
+      if (error) {
+        toast({ title: "Failed to update task", variant: "destructive" });
+        return;
+      }
+      toast({ title: "Task updated" });
+    } else {
+      const { error } = await supabase
+        .from("tasks")
+        .insert([{ 
+          passenger_name,
+          pickup_location,
+          dropoff_location,
+          task_name, 
+          notes, 
+          status: "available"
+        }]);
+
+      if (error) {
+        toast({ title: "Failed to create task", variant: "destructive" });
+        return;
+      }
+      toast({ title: "Task created" });
+    }
+
+    setShowTaskDialog(false);
+    setEditingTask(null);
+    setTaskForm({ passenger_name: "", pickup_location: "", dropoff_location: "", task_name: "", notes: "" });
+    loadData();
+  }
+
+  async function deleteTask(id: string) {
+    const { error } = await supabase.from("tasks").delete().eq("id", id);
+    if (error) {
+      toast({ title: "Failed to delete task", variant: "destructive" });
+      return;
+    }
+    toast({ title: "Task deleted" });
+    loadData();
+  }
+
+  async function createOrUpdateDriver() {
+    const { name, email, phone, pin_password } = driverForm;
+    if (!name || !pin_password) {
+      toast({ title: "Name and PIN are required", variant: "destructive" });
+      return;
+    }
+
+    if (editingDriver) {
+      const { error } = await supabase
+        .from("drivers")
+        .update({ name, email, phone, pin_password })
+        .eq("id", editingDriver.id);
+
+      if (error) {
+        toast({ title: "Failed to update driver", variant: "destructive" });
+        return;
+      }
+      toast({ title: "Driver updated" });
+    } else {
+      const { error } = await supabase
+        .from("drivers")
+        .insert([{ name, email, phone, pin_password }]);
+
+      if (error) {
+        toast({ title: "Failed to create driver", variant: "destructive" });
+        return;
+      }
+      toast({ title: "Driver created" });
+    }
+
+    setShowDriverDialog(false);
+    setEditingDriver(null);
+    setDriverForm({ name: "", email: "", phone: "", pin_password: "" });
+    loadData();
+  }
+
+  async function deleteDriver(id: string) {
+    const { error } = await supabase.from("drivers").delete().eq("id", id);
+    if (error) {
+      toast({ title: "Failed to delete driver", variant: "destructive" });
+      return;
+    }
+    toast({ title: "Driver deleted" });
+    loadData();
+  }
+
+  async function createOrUpdatePassenger() {
+    const { name, default_pickup_location } = passengerForm;
+    if (!name || !default_pickup_location) {
+      toast({ title: "Please fill all fields", variant: "destructive" });
+      return;
+    }
+
+    if (editingPassenger) {
+      const { error } = await supabase
+        .from("passengers")
+        .update({ name, default_pickup_location })
+        .eq("id", editingPassenger.id);
+
+      if (error) {
+        toast({ title: "Failed to update passenger", variant: "destructive" });
+        return;
+      }
+      toast({ title: "Passenger updated" });
+    } else {
+      const { error } = await supabase
+        .from("passengers")
+        .insert([{ name, default_pickup_location }]);
+
+      if (error) {
+        toast({ title: "Failed to create passenger", variant: "destructive" });
+        return;
+      }
+      toast({ title: "Passenger created" });
+    }
+
+    setShowPassengerDialog(false);
+    setEditingPassenger(null);
+    setPassengerForm({ name: "", default_pickup_location: "" });
+    loadData();
+  }
+
+  async function deletePassenger(id: string) {
+    const { error } = await supabase.from("passengers").delete().eq("id", id);
+    if (error) {
+      toast({ title: "Failed to delete passenger", variant: "destructive" });
+      return;
+    }
+    toast({ title: "Passenger deleted" });
+    loadData();
+  }
+
+  async function updateTemplate(id: string, templateText: string) {
+    const { error } = await supabase
+      .from("message_templates")
+      .update({ template_text: templateText })
+      .eq("id", id);
+
+    if (error) {
+      toast({ title: "Failed to update template", variant: "destructive" });
+      return;
+    }
+    toast({ title: "Template updated" });
+    loadData();
+  }
+
+  async function updateSettings() {
+    const updates = [
+      { key: "telegram_bot_token", value: settings.telegram_bot_token },
+      { key: "telegram_chat_id", value: settings.telegram_chat_id },
+      { key: "admin_passkey", value: settings.admin_passkey },
+    ];
+
+    for (const update of updates) {
+      await supabase
+        .from("app_settings")
+        .update({ setting_value: update.value })
+        .eq("setting_key", update.key);
+    }
+
+    toast({ title: "Settings updated" });
+  }
+
+  if (!isAuthenticated) {
+    return (
+      <div className="min-h-screen flex items-center justify-center p-4 bg-gradient-to-br from-background via-muted/20 to-background">
+        <Card className="w-full max-w-md p-8 shadow-elevated">
+          <div className="text-center space-y-6">
+            <img src={logo} alt="Welcome Logo" className="w-20 h-20 mx-auto rounded-2xl" />
+            <div>
+              <h1 className="text-3xl font-bold text-foreground">Admin Panel</h1>
+              <p className="text-muted-foreground mt-1">Enter passkey to continue</p>
+            </div>
+            <div className="space-y-3">
+              <Input
+                type="password"
+                value={passkey}
+                onChange={(e) => setPasskey(e.target.value)}
+                onKeyDown={(e) => e.key === "Enter" && checkPasskey()}
+                placeholder="Enter admin passkey"
+                autoFocus
+              />
+              <Button onClick={checkPasskey} className="w-full">
+                Access Admin Panel
+              </Button>
+              <Button variant="outline" className="w-full" onClick={() => navigate("/dashboard")}>
+                <ArrowLeft className="mr-2 h-4 w-4" />
+                Back to Dashboard
+              </Button>
+            </div>
+          </div>
+        </Card>
+      </div>
+    );
+  }
+
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-background via-muted/20 to-background">
+      <header className="bg-card border-b border-border shadow-sm">
+        <div className="container mx-auto px-4 py-4 flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <h1 className="text-xl font-bold text-foreground">Admin Panel</h1>
+          </div>
+          <div className="flex items-center gap-3">
+            <Button variant="outline" onClick={() => navigate("/dashboard")}>
+              <ArrowLeft className="mr-2 h-4 w-4" />
+              Back
+            </Button>
+            <img src={logo} alt="Welcome" className="w-12 h-12 rounded-xl" />
+          </div>
+        </div>
+      </header>
+
+      <div className="container mx-auto px-4 py-8 max-w-5xl">
+        <Tabs defaultValue="tasks" className="space-y-6">
+          <TabsList className="grid w-full grid-cols-5 gap-1">
+            <TabsTrigger value="tasks" className="text-xs sm:text-sm">Tasks</TabsTrigger>
+            <TabsTrigger value="drivers" className="text-xs sm:text-sm">Drivers</TabsTrigger>
+            <TabsTrigger value="passengers" className="text-xs sm:text-sm">Passengers</TabsTrigger>
+            <TabsTrigger value="templates" className="text-xs sm:text-sm">Templates</TabsTrigger>
+            <TabsTrigger value="settings" className="text-xs sm:text-sm">Settings</TabsTrigger>
+          </TabsList>
+
+          <TabsContent value="tasks" className="space-y-6">
+            <div className="flex justify-between items-center">
+              <h2 className="text-2xl font-bold">Manage Tasks</h2>
+              <Button
+                onClick={() => {
+                  setEditingTask(null);
+                  setTaskForm({ passenger_name: "", pickup_location: "", dropoff_location: "", task_name: "", notes: "" });
+                  setShowTaskDialog(true);
+                }}
+              >
+                <Plus className="mr-2 h-4 w-4" />
+                Create Task
+              </Button>
+            </div>
+
+            {/* Active Tasks */}
+            <div className="space-y-3">
+              <h3 className="text-lg font-semibold text-foreground">Active Tasks</h3>
+              {tasks.filter(t => t.status !== "completed" && t.status !== "on_board").length === 0 ? (
+                <Card className="p-6 text-center text-muted-foreground">
+                  No active tasks
+                </Card>
+              ) : (
+                tasks.filter(t => t.status !== "completed" && t.status !== "on_board").map((task) => (
+                  <Card key={task.id} className="p-4">
+                    <div className="flex justify-between items-start">
+                      <div className="flex-1">
+                        <h3 className="font-semibold text-lg">{task.task_name || "Unnamed Task"}</h3>
+                        <p className="text-sm text-muted-foreground mt-1">
+                          <span className="font-medium">Passenger:</span> {task.passenger_name}
+                        </p>
+                        <p className="text-sm text-muted-foreground">
+                          <span className="font-medium">From:</span> {task.pickup_location}
+                        </p>
+                        <p className="text-sm text-muted-foreground">
+                          <span className="font-medium">To:</span> {task.dropoff_location}
+                        </p>
+                        {task.notes && (
+                          <p className="text-sm text-muted-foreground mt-1">
+                            <span className="font-medium">Notes:</span> {task.notes}
+                          </p>
+                        )}
+                        <p className="text-sm mt-2">
+                          <span className="font-medium">Status:</span>{" "}
+                          <span className={task.status === "available" ? "text-green-600" : "text-blue-600"}>
+                            {task.status}
+                          </span>
+                        </p>
+                      </div>
+                      <div className="flex gap-2">
+                        <Button
+                          size="icon"
+                          variant="outline"
+                          onClick={() => {
+                            setEditingTask(task);
+                            setTaskForm({
+                              passenger_name: task.passenger_name || "",
+                              pickup_location: task.pickup_location || "",
+                              dropoff_location: task.dropoff_location || "",
+                              task_name: task.task_name || "",
+                              notes: task.notes || "",
+                            });
+                            setShowTaskDialog(true);
+                          }}
+                        >
+                          <Edit className="h-4 w-4" />
+                        </Button>
+                        <Button size="icon" variant="destructive" onClick={() => deleteTask(task.id)}>
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    </div>
+                  </Card>
+                ))
+              )}
+            </div>
+
+            {/* Done Tasks */}
+            <div className="space-y-3">
+              <h3 className="text-lg font-semibold text-foreground">Done Tasks</h3>
+              {tasks.filter(t => t.status === "completed").length === 0 ? (
+                <Card className="p-6 text-center text-muted-foreground">
+                  No completed tasks
+                </Card>
+              ) : (
+                tasks.filter(t => t.status === "completed").map((task) => {
+                  const driver = drivers.find(d => d.id === task.driver_id);
+                  return (
+                    <Card key={task.id} className="p-4 bg-muted/30">
+                      <div className="flex justify-between items-start">
+                        <div className="flex-1">
+                          <Badge className="mb-2">Completed</Badge>
+                          <h3 className="font-semibold text-lg">{task.task_name || "Unnamed Task"}</h3>
+                          <p className="text-sm text-muted-foreground mt-1">
+                            <span className="font-medium text-foreground">Passenger:</span> {task.passenger_name}
+                          </p>
+                          <p className="text-sm text-muted-foreground">
+                            <span className="font-medium text-foreground">From:</span> {task.pickup_location}
+                          </p>
+                          <p className="text-sm text-muted-foreground">
+                            <span className="font-medium text-foreground">To:</span> {task.dropoff_location}
+                          </p>
+                          <p className="text-sm text-muted-foreground mt-2">
+                            <span className="font-medium text-foreground">Driver:</span> {driver?.name || "Unknown"}
+                          </p>
+                          {task.notes && (
+                            <p className="text-sm text-muted-foreground mt-1">
+                              <span className="font-medium">Notes:</span> {task.notes}
+                            </p>
+                          )}
+                          {task.completed_at && (
+                            <p className="text-sm text-muted-foreground mt-1">
+                              <span className="font-medium">Completed:</span> {new Date(task.completed_at).toLocaleString()}
+                            </p>
+                          )}
+                        </div>
+                        <Button size="icon" variant="destructive" onClick={() => deleteTask(task.id)}>
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    </Card>
+                  );
+                })
+              )}
+            </div>
+          </TabsContent>
+
+          <TabsContent value="drivers" className="space-y-4">
+            <div className="flex justify-between items-center">
+              <h2 className="text-2xl font-bold">Manage Drivers</h2>
+              <Button
+                onClick={() => {
+                  setEditingDriver(null);
+                  setDriverForm({ name: "", email: "", phone: "", pin_password: "" });
+                  setShowDriverDialog(true);
+                }}
+              >
+                <Plus className="mr-2 h-4 w-4" />
+                Add Driver
+              </Button>
+            </div>
+            <div className="space-y-3">
+              {drivers.map((driver) => (
+                <Card key={driver.id} className="p-4">
+                  <div className="flex justify-between items-center">
+                    <div>
+                      <h3 className="font-semibold text-lg">{driver.name}</h3>
+                      <p className="text-sm text-muted-foreground">{driver.email || "No email"}</p>
+                      <p className="text-sm text-muted-foreground">{driver.phone || "No phone"}</p>
+                    </div>
+                    <div className="flex gap-2">
+                      <Button
+                        size="icon"
+                        variant="outline"
+                        onClick={() => {
+                          setEditingDriver(driver);
+                          setDriverForm({
+                            name: driver.name,
+                            email: driver.email || "",
+                            phone: driver.phone || "",
+                            pin_password: driver.pin_password,
+                          });
+                          setShowDriverDialog(true);
+                        }}
+                      >
+                        <Edit className="h-4 w-4" />
+                      </Button>
+                      <Button size="icon" variant="destructive" onClick={() => deleteDriver(driver.id)}>
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  </div>
+                </Card>
+              ))}
+            </div>
+          </TabsContent>
+
+          <TabsContent value="passengers" className="space-y-4">
+            <div className="flex justify-between items-center">
+              <h2 className="text-2xl font-bold">Manage Passengers</h2>
+              <Button
+                onClick={() => {
+                  setEditingPassenger(null);
+                  setPassengerForm({ name: "", default_pickup_location: "" });
+                  setShowPassengerDialog(true);
+                }}
+              >
+                <Plus className="mr-2 h-4 w-4" />
+                Add Passenger
+              </Button>
+            </div>
+            <div className="space-y-3">
+              {passengers.map((passenger) => (
+                <Card key={passenger.id} className="p-4">
+                  <div className="flex justify-between items-start">
+                    <div className="flex-1">
+                      <h3 className="font-semibold text-lg">{passenger.name}</h3>
+                      <p className="text-sm text-muted-foreground mt-1">
+                        <span className="font-medium">Default Pickup:</span> {passenger.default_pickup_location}
+                      </p>
+                    </div>
+                    <div className="flex gap-2">
+                      <Button
+                        size="icon"
+                        variant="outline"
+                        onClick={() => {
+                          setEditingPassenger(passenger);
+                          setPassengerForm({
+                            name: passenger.name,
+                            default_pickup_location: passenger.default_pickup_location,
+                          });
+                          setShowPassengerDialog(true);
+                        }}
+                      >
+                        <Edit className="h-4 w-4" />
+                      </Button>
+                      <Button size="icon" variant="destructive" onClick={() => deletePassenger(passenger.id)}>
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  </div>
+                </Card>
+              ))}
+            </div>
+          </TabsContent>
+
+          <TabsContent value="templates" className="space-y-4">
+            <h2 className="text-2xl font-bold">Message Templates</h2>
+            <p className="text-sm text-muted-foreground">
+              Use variables: [driver], [passenger], [eta], [delay], [location]
+            </p>
+            <div className="space-y-3">
+              {templates.map((template) => (
+                <Card key={template.id} className="p-4">
+                  <div className="space-y-3">
+                    <div>
+                      <Label className="text-base font-semibold capitalize">
+                        {template.template_key.replace(/_/g, " ")}
+                      </Label>
+                      {template.description && (
+                        <p className="text-xs text-muted-foreground mt-1">{template.description}</p>
+                      )}
+                    </div>
+                    <Textarea
+                      value={template.template_text}
+                      onChange={(e) => {
+                        const updatedTemplates = templates.map((t) =>
+                          t.id === template.id ? { ...t, template_text: e.target.value } : t
+                        );
+                        setTemplates(updatedTemplates);
+                      }}
+                      rows={2}
+                    />
+                    <Button
+                      size="sm"
+                      onClick={() => updateTemplate(template.id, template.template_text)}
+                    >
+                      Save Template
+                    </Button>
+                  </div>
+                </Card>
+              ))}
+            </div>
+          </TabsContent>
+
+          <TabsContent value="settings" className="space-y-4">
+            <h2 className="text-2xl font-bold">App Settings</h2>
+            <Card className="p-6 space-y-4">
+              <div>
+                <Label>Telegram Bot Token</Label>
+                <Input
+                  value={settings.telegram_bot_token || ""}
+                  onChange={(e) => setSettings({ ...settings, telegram_bot_token: e.target.value })}
+                />
+              </div>
+              <div>
+                <Label>Telegram Chat ID</Label>
+                <Input
+                  value={settings.telegram_chat_id || ""}
+                  onChange={(e) => setSettings({ ...settings, telegram_chat_id: e.target.value })}
+                />
+              </div>
+              <div>
+                <Label>Admin Passkey</Label>
+                <Input
+                  type="password"
+                  value={settings.admin_passkey || ""}
+                  onChange={(e) => setSettings({ ...settings, admin_passkey: e.target.value })}
+                />
+              </div>
+              <Button onClick={updateSettings}>Save Settings</Button>
+            </Card>
+          </TabsContent>
+        </Tabs>
+      </div>
+
+      <Dialog open={showTaskDialog} onOpenChange={setShowTaskDialog}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle>{editingTask ? "Edit Task" : "Create New Task"}</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div>
+              <Label>Passenger Name *</Label>
+              <Input
+                value={taskForm.passenger_name}
+                onChange={(e) => setTaskForm({ ...taskForm, passenger_name: e.target.value })}
+                placeholder="Enter passenger name"
+              />
+            </div>
+            <div>
+              <Label>Pickup Location *</Label>
+              <Input
+                value={taskForm.pickup_location}
+                onChange={(e) => setTaskForm({ ...taskForm, pickup_location: e.target.value })}
+                placeholder="Enter pickup location"
+              />
+            </div>
+            <div>
+              <Label>Dropoff Location *</Label>
+              <Input
+                value={taskForm.dropoff_location}
+                onChange={(e) => setTaskForm({ ...taskForm, dropoff_location: e.target.value })}
+                placeholder="Enter dropoff location"
+              />
+            </div>
+            <div>
+              <Label>Task Name (optional)</Label>
+              <Input
+                value={taskForm.task_name}
+                onChange={(e) => setTaskForm({ ...taskForm, task_name: e.target.value })}
+                placeholder="Enter task name"
+              />
+            </div>
+            <div>
+              <Label>Notes (optional)</Label>
+              <Textarea
+                value={taskForm.notes}
+                onChange={(e) => setTaskForm({ ...taskForm, notes: e.target.value })}
+                placeholder="Add any additional notes"
+              />
+            </div>
+            <Button onClick={createOrUpdateTask} className="w-full">
+              {editingTask ? "Update Task" : "Create Task"}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={showDriverDialog} onOpenChange={setShowDriverDialog}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle>{editingDriver ? "Edit Driver" : "Create New Driver"}</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div>
+              <Label>Name *</Label>
+              <Input
+                value={driverForm.name}
+                onChange={(e) => setDriverForm({ ...driverForm, name: e.target.value })}
+                placeholder="Enter driver name"
+              />
+            </div>
+            <div>
+              <Label>Email</Label>
+              <Input
+                type="email"
+                value={driverForm.email}
+                onChange={(e) => setDriverForm({ ...driverForm, email: e.target.value })}
+                placeholder="Enter email (optional)"
+              />
+            </div>
+            <div>
+              <Label>Phone</Label>
+              <Input
+                value={driverForm.phone}
+                onChange={(e) => setDriverForm({ ...driverForm, phone: e.target.value })}
+                placeholder="Enter phone (optional)"
+              />
+            </div>
+            <div>
+              <Label>PIN Password *</Label>
+              <Input
+                type="password"
+                value={driverForm.pin_password}
+                onChange={(e) => setDriverForm({ ...driverForm, pin_password: e.target.value })}
+                placeholder="Enter 4-digit PIN"
+              />
+            </div>
+            <Button onClick={createOrUpdateDriver} className="w-full">
+              {editingDriver ? "Update Driver" : "Create Driver"}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={showPassengerDialog} onOpenChange={setShowPassengerDialog}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle>{editingPassenger ? "Edit Passenger" : "Add New Passenger"}</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div>
+              <Label>Passenger Name *</Label>
+              <Input
+                value={passengerForm.name}
+                onChange={(e) => setPassengerForm({ ...passengerForm, name: e.target.value })}
+                placeholder="Enter passenger name"
+              />
+            </div>
+            <div>
+              <Label>Default Pickup Location *</Label>
+              <Input
+                value={passengerForm.default_pickup_location}
+                onChange={(e) => setPassengerForm({ ...passengerForm, default_pickup_location: e.target.value })}
+                placeholder="Enter default pickup address"
+              />
+            </div>
+            <Button onClick={createOrUpdatePassenger} className="w-full">
+              {editingPassenger ? "Update Passenger" : "Add Passenger"}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+    </div>
+  );
+}
