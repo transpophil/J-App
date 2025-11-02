@@ -10,7 +10,7 @@ import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
 import { sendTelegramTemplate } from "@/utils/telegram";
-import { LogOut, MapPin, Clock, CheckCircle2, AlertCircle } from "lucide-react";
+import { LogOut, MapPin, Clock, CheckCircle2, AlertCircle, Navigation } from "lucide-react";
 import { TimeWheel } from "@/components/TimeWheel";
 import { TaskSection } from "@/components/TaskSection";
 import { TaskNotificationBell } from "@/components/TaskNotificationBell";
@@ -332,6 +332,43 @@ export default function Dashboard() {
     navigate("/login");
   }
 
+  // Function to open Google Maps with route
+  function openGoogleMapsRoute() {
+    if (selectedPassengers.length === 0) {
+      toast({ title: "Please select passengers first", variant: "destructive" });
+      return;
+    }
+
+    const selectedPassengerData = passengers.filter(p => selectedPassengers.includes(p.id));
+    if (selectedPassengerData.length === 0) {
+      toast({ title: "No passengers selected", variant: "destructive" });
+      return;
+    }
+
+    // Create waypoints from passenger locations
+    const waypoints = selectedPassengerData.map(p => 
+      encodeURIComponent(p.default_pickup_location)
+    ).join('/');
+
+    // Create Google Maps URL
+    const mapsUrl = `https://www.google.com/maps/dir/${waypoints}`;
+
+    // Try to open in Google Maps app first, fallback to browser
+    const appUrl = `google.navigation:q=${encodeURIComponent(selectedPassengerData[0].default_pickup_location)}`;
+    
+    // Create hidden iframe to try opening the app
+    const iframe = document.createElement('iframe');
+    iframe.style.display = 'none';
+    iframe.src = appUrl;
+    document.body.appendChild(iframe);
+    
+    // After a short delay, redirect to web version if app didn't open
+    setTimeout(() => {
+      document.body.removeChild(iframe);
+      window.open(mapsUrl, '_blank');
+    }, 1000);
+  }
+
   if (!currentDriver) return null;
 
   return (
@@ -427,6 +464,18 @@ export default function Dashboard() {
               </div>
 
               <div className="space-y-3">
+                {/* Google Maps Route Button */}
+                {selectedPassengers.length > 0 && (
+                  <Button 
+                    className="w-full" 
+                    variant="outline"
+                    onClick={openGoogleMapsRoute}
+                  >
+                    <Navigation className="mr-2 h-5 w-5" />
+                    View Route in Google Maps
+                  </Button>
+                )}
+
                 <Button 
                   className="w-full" 
                   size="lg"
