@@ -15,49 +15,6 @@
 All colors MUST be HSL.
 */
 
-/* Christmas Theme Decorations */
-.christmas-snowflake {
-  position: fixed;
-  top: -10px;
-  background: radial-gradient(circle at 30% 30%, rgba(255,255,255,1) 0%, rgba(255,255,255,0.9) 60%, rgba(255,255,255,0.6) 100%);
-  border-radius: 50%;
-  filter: drop-shadow(0 1px 2px rgba(0,0,0,0.05));
-  animation-name: snowFall;
-  animation-timing-function: linear;
-  animation-iteration-count: infinite;
-  will-change: transform, opacity;
-}
-
-@keyframes snowFall {
-  0% {
-    transform: translateY(-10px) translateX(0);
-    opacity: 0;
-  }
-  10% {
-    opacity: 1;
-  }
-  100% {
-    transform: translateY(100vh) translateX(30px);
-    opacity: 0;
-  }
-}
-
-/* Soft snowy edge around the viewport */
-.christmas-border {
-  box-shadow: inset 0 0 80px rgba(255, 255, 255, 0.9), inset 0 0 160px rgba(255, 255, 255, 0.5);
-  border-radius: 2px;
-}
-
-/* Optional: slightly cooler background tint when theme is enabled (kept subtle) */
-html.christmas-enabled body {
-  background-image: radial-gradient(ellipse at top, rgba(255,255,255,0.12), transparent 60%),
-    radial-gradient(ellipse at bottom, rgba(240,248,255,0.12), transparent 60%);
-}
-
-/* Definition of the design system. All colors, gradients, fonts, etc should be defined here. 
-All colors MUST be HSL.
-*/
-
 @layer base {
   :root {
     --background: 0 0% 98%;

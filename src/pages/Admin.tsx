@@ -11,7 +11,6 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
 import { ArrowLeft, Plus, Trash2, Edit } from "lucide-react";
-import { Switch } from "@/components/ui/switch";
 import logo from "@/assets/j-app-logo.jpg";
 
 export default function Admin() {
@@ -259,7 +258,6 @@ export default function Admin() {
       { key: "telegram_bot_token", value: settings.telegram_bot_token },
       { key: "telegram_chat_id", value: settings.telegram_chat_id },
       { key: "admin_passkey", value: settings.admin_passkey },
-      { key: "christmas_theme_enabled", value: settings.christmas_theme_enabled },
     ];
 
     for (const update of updates) {
@@ -270,15 +268,6 @@ export default function Admin() {
     }
 
     toast({ title: "Settings updated" });
-  }
-
-  async function updateThemeSetting(enabled: boolean) {
-    const value = enabled ? "true" : "false";
-    setSettings({ ...settings, christmas_theme_enabled: value });
-    await supabase
-      .from("app_settings")
-      .upsert({ setting_key: "christmas_theme_enabled", setting_value: value }, { onConflict: "setting_key" });
-    toast({ title: enabled ? "Christmas theme enabled" : "Christmas theme disabled" });
   }
 
   if (!isAuthenticated) {
@@ -333,13 +322,12 @@ export default function Admin() {
 
       <div className="container mx-auto px-4 py-8 max-w-5xl">
         <Tabs defaultValue="tasks" className="space-y-6">
-          <TabsList className="grid w-full grid-cols-6 gap-1">
+          <TabsList className="grid w-full grid-cols-5 gap-1">
             <TabsTrigger value="tasks" className="text-xs sm:text-sm">Tasks</TabsTrigger>
             <TabsTrigger value="drivers" className="text-xs sm:text-sm">Drivers</TabsTrigger>
             <TabsTrigger value="passengers" className="text-xs sm:text-sm">Passengers</TabsTrigger>
             <TabsTrigger value="templates" className="text-xs sm:text-sm">Templates</TabsTrigger>
             <TabsTrigger value="settings" className="text-xs sm:text-sm">Settings</TabsTrigger>
-            <TabsTrigger value="theme" className="text-xs sm:text-sm">Theme</TabsTrigger>
           </TabsList>
 
           <TabsContent value="tasks" className="space-y-6">
@@ -646,24 +634,6 @@ export default function Admin() {
                 />
               </div>
               <Button onClick={updateSettings}>Save Settings</Button>
-            </Card>
-          </TabsContent>
-
-          <TabsContent value="theme" className="space-y-4">
-            <h2 className="text-2xl font-bold">Theme</h2>
-            <Card className="p-6 space-y-4">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="font-semibold">Christmas Theme</p>
-                  <p className="text-sm text-muted-foreground">
-                    Add snow, garland, and festive decorations on all pages.
-                  </p>
-                </div>
-                <Switch
-                  checked={(settings.christmas_theme_enabled ?? "false") === "true"}
-                  onCheckedChange={updateThemeSetting}
-                />
-              </div>
             </Card>
           </TabsContent>
         </Tabs>
