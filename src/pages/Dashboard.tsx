@@ -335,61 +335,82 @@ export default function Dashboard() {
   // Function to open Google Maps with route
   function openGoogleMapsRoute() {
     if (selectedPassengers.length === 0) {
-      toast({ title: "Please select passengers first", variant: "destructive" });
+      toast({ title: "Bitte zuerst Passagiere auswählen", variant: "destructive" });
       return;
     }
     const selectedPassengerData = passengers.filter(p => selectedPassengers.includes(p.id));
     if (selectedPassengerData.length === 0) {
-      toast({ title: "No passengers selected", variant: "destructive" });
+      toast({ title: "Keine Passagiere ausgewählt", variant: "destructive" });
       return;
     }
     const locations = selectedPassengerData.map(p => p.default_pickup_location).filter(Boolean);
     if (locations.length === 0) {
-      toast({ title: "Selected passengers have no pickup locations", variant: "destructive" });
+      toast({ title: "Ausgewählte Passagiere haben keinen Abholort", variant: "destructive" });
       return;
     }
     const destination = locations[locations.length - 1];
     const waypointList = locations.slice(0, -1);
-    // Use the driver's current position as origin when possible
+
+    const isIOS = /iPhone|iPad|iPod/i.test(navigator.userAgent);
+    const isAndroid = /Android/i.test(navigator.userAgent);
+
+    const buildWebUrl = (origin?: string) => {
+      return (
+        `https://www.google.com/maps/dir/?api=1` +
+        (origin ? `&origin=${encodeURIComponent(origin)}` : "") +
+        `&destination=${encodeURIComponent(destination)}` +
+        (waypointList.length > 0 ? `&waypoints=${encodeURIComponent(waypointList.join("|"))}` : "") +
+        `&travelmode=driving`
+      );
+    };
+
+    const tryDeepLink = (origin?: string) => {
+      // iOS: Google Maps App Deep Link
+      if (isIOS) {
+        const deepUrl =
+          `comgooglemaps://?daddr=${encodeURIComponent(destination)}&directionsmode=driving` +
+          (origin ? `&saddr=${encodeURIComponent(origin)}` : "");
+        // Fallback nach kurzer Zeit zur Web-Route
+        const fallbackUrl = buildWebUrl(origin);
+        window.location.href = deepUrl;
+        setTimeout(() => {
+          window.location.href = fallbackUrl;
+        }, 800);
+        return;
+      }
+      // Android: Google Maps Navigation Deep Link
+      if (isAndroid) {
+        const deepUrl = `google.navigation:q=${encodeURIComponent(destination)}&mode=d`;
+        const fallbackUrl = buildWebUrl(origin);
+        window.location.href = deepUrl;
+        setTimeout(() => {
+          window.location.href = fallbackUrl;
+        }, 800);
+        return;
+      }
+      // Desktop/sonstige: direkt Web-Route
+      window.location.href = buildWebUrl(origin);
+    };
+
+    // Startpunkt mit aktueller Position, wenn möglich
     if (navigator.geolocation) {
       navigator.geolocation.getCurrentPosition(
         (pos) => {
           const { latitude, longitude } = pos.coords;
           const origin = `${latitude},${longitude}`;
-          const mapsUrl =
-            `https://www.google.com/maps/dir/?api=1` +
-            `&origin=${encodeURIComponent(origin)}` +
-            `&destination=${encodeURIComponent(destination)}` +
-            (waypointList.length > 0
-              ? `&waypoints=${encodeURIComponent(waypointList.join("|"))}`
-              : "") +
-            `&travelmode=driving`;
-          window.open(mapsUrl, "_blank");
+          tryDeepLink(origin);
         },
         () => {
-          // Fallback: open route without explicit origin
-          const mapsUrl =
-            `https://www.google.com/maps/dir/?api=1` +
-            `&destination=${encodeURIComponent(destination)}` +
-            (waypointList.length > 0
-              ? `&waypoints=${encodeURIComponent(waypointList.join("|"))}`
-              : "") +
-            `&travelmode=driving`;
-          toast({ title: "Couldn't access current location", description: "Opening route without fixed start." });
-          window.open(mapsUrl, "_blank");
+          toast({
+            title: "Standortzugriff verweigert",
+            description: "Route wird ohne festen Startpunkt geöffnet.",
+          });
+          tryDeepLink(undefined);
         },
         { enableHighAccuracy: true, timeout: 8000, maximumAge: 0 }
       );
     } else {
-      // Geolocation not supported
-      const mapsUrl =
-        `https://www.google.com/maps/dir/?api=1` +
-        `&destination=${encodeURIComponent(destination)}` +
-        (waypointList.length > 0
-          ? `&waypoints=${encodeURIComponent(waypointList.join("|"))}`
-          : "") +
-        `&travelmode=driving`;
-      window.open(mapsUrl, "_blank");
+      tryDeepLink(undefined);
     }
   }
 
