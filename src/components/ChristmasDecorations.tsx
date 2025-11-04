@@ -1,87 +1,85 @@
 "use client";
 
-import React, { useMemo } from "react";
+import React from "react";
 import { useTheme } from "@/contexts/ThemeContext";
 
 const ChristmasDecorations: React.FC = () => {
   const { christmasEnabled } = useTheme();
 
-  const flakes = useMemo(() => {
-    const count = 50;
-    return Array.from({ length: count }, (_, i) => {
-      const size = Math.random() * 4 + 2; // 2px - 6px
-      const left = Math.random() * 100; // percentage
-      const duration = Math.random() * 6 + 6; // 6s - 12s
-      const delay = Math.random() * 6; // 0s - 6s
-      const opacity = Math.random() * 0.6 + 0.4; // 0.4 - 1.0
-      return { id: i, size, left, duration, delay, opacity };
-    });
-  }, []);
-
   if (!christmasEnabled) return null;
 
   return (
     <>
-      {/* Snowy border glow */}
-      <div className="pointer-events-none fixed inset-0 z-30 christmas-border" />
+      {/* Soft snowy border glow */}
+      <div className="pointer-events-none fixed inset-0 z-40 christmas-border" />
 
-      {/* Falling snowflakes */}
-      <div className="pointer-events-none fixed inset-0 z-30">
-        {flakes.map((f) => (
-          <div
-            key={f.id}
-            className="christmas-snowflake"
-            style={{
-              left: `${f.left}%`,
-              width: `${f.size}px`,
-              height: `${f.size}px`,
-              opacity: f.opacity,
-              animationDuration: `${f.duration}s`,
-              animationDelay: `${f.delay}s`,
-            }}
-          />
-        ))}
-      </div>
-
-      {/* Top festive garland */}
-      <div className="pointer-events-none fixed top-0 left-0 right-0 z-30 flex justify-center">
+      {/* Static festive garland at the top */}
+      <div className="pointer-events-none fixed top-0 left-0 right-0 z-40 flex justify-center">
         <svg
           width="100%"
-          height="100"
-          viewBox="0 0 1200 100"
+          height="110"
+          viewBox="0 0 1200 110"
           preserveAspectRatio="none"
-          className="drop-shadow-md"
+          className="drop-shadow-sm"
         >
-          {/* Garland rope */}
+          {/* Rope */}
           <path
-            d="M 0 40 Q 200 80 400 40 T 800 40 T 1200 40"
+            d="M 0 50 Q 200 90 400 50 T 800 50 T 1200 50"
             fill="none"
             stroke="hsl(174 75% 38%)"
             strokeWidth="6"
+            strokeLinecap="round"
           />
-          {/* Lights */}
+          {/* Pine needles (stylized strokes below rope) */}
+          <path
+            d="M 0 60 Q 200 100 400 60 T 800 60 T 1200 60"
+            fill="none"
+            stroke="hsl(174 60% 30%)"
+            strokeWidth="3"
+            strokeLinecap="round"
+          />
+          {/* Static lights */}
           {Array.from({ length: 20 }, (_, i) => {
             const x = i * 60 + 40;
-            const y = 50 + Math.sin(i / 2) * 20;
+            const y = 65 + Math.sin(i / 2) * 18;
             const colors = ["hsl(0 84% 60%)", "hsl(50 100% 50%)", "hsl(187 85% 43%)", "hsl(174 75% 38%)"];
             const color = colors[i % colors.length];
             return (
-              <circle key={i} cx={x} cy={y} r="8" fill={color} className="animate-pulse" />
-            );
-          })}
-          {/* Hanging ornaments */}
-          {Array.from({ length: 10 }, (_, i) => {
-            const x = i * 120 + 80;
-            const y1 = 40;
-            const y2 = 85;
-            const hue = (i * 36) % 360;
-            return (
-              <g key={`orn-${i}`}>
-                <line x1={x} y1={y1} x2={x} y2={y2} stroke="hsl(200 10% 45%)" strokeWidth="2" />
-                <circle cx={x} cy={y2} r="10" fill={`hsl(${hue} 80% 55%)`} stroke="white" strokeWidth="2" />
+              <g key={i}>
+                <circle cx={x} cy={y} r="10" fill={color} />
+                <rect x={x - 2} y={y - 16} width="4" height="8" rx="1" fill="hsl(200 10% 30%)" />
               </g>
             );
           })}
+          {/* Hanging ornaments */}
+          {Array.from({ length: 8 }, (_, i) => {
+            const x = i * 140 + 100;
+            const yTop = 48;
+            const y = 95;
+            const hue = (i * 36) % 360;
+            return (
+              <g key={`orn-${i}`}>
+                <line x1={x} y1={yTop} x2={x} y2={y - 12} stroke="hsl(200 10% 45%)" strokeWidth="2" />
+                <circle cx={x} cy={y} r="12" fill={`hsl(${hue} 70% 55%)`} stroke="white" strokeWidth="2" />
+              </g>
+            );
+          })}
+        </svg>
+      </div>
+
+      {/* Bottom snow ridge */}
+      <div className="pointer-events-none fixed bottom-0 left-0 right-0 z-40">
+        <svg width="100%" height="80" viewBox="0 0 1200 80" preserveAspectRatio="none">
+          <defs>
+            <linearGradient id="snowShade" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stopColor="rgba(255,255,255,0.96)" />
+              <stop offset="100%" stopColor="rgba(255,255,255,0.85)" />
+            </linearGradient>
+          </defs>
+          <path
+            d="M0,40 C150,70 300,10 450,40 C600,70 750,20 900,40 C1050,60 1200,30 1200,30 L1200,80 L0,80 Z"
+            fill="url(#snowShade)"
+          />
         </svg>
       </div>
     </>

@@ -12,11 +12,13 @@ import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
 import { ArrowLeft, Plus, Trash2, Edit } from "lucide-react";
 import { Switch } from "@/components/ui/switch";
+import { useTheme } from "@/contexts/ThemeContext";
 import logo from "@/assets/j-app-logo.jpg";
 
 export default function Admin() {
   const navigate = useNavigate();
   const { toast } = useToast();
+  const { setChristmasEnabled } = useTheme();
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [passkey, setPasskey] = useState("");
   const [drivers, setDrivers] = useState<any[]>([]);
@@ -275,9 +277,7 @@ export default function Admin() {
   async function updateThemeSetting(enabled: boolean) {
     const value = enabled ? "true" : "false";
     setSettings({ ...settings, christmas_theme_enabled: value });
-    await supabase
-      .from("app_settings")
-      .upsert({ setting_key: "christmas_theme_enabled", setting_value: value }, { onConflict: "setting_key" });
+    await setChristmasEnabled(enabled); // updates context + persists to Supabase
     toast({ title: enabled ? "Christmas theme enabled" : "Christmas theme disabled" });
   }
 
