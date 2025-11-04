@@ -16,6 +16,7 @@ interface Task {
   passenger_name: string | null;
   pickup_location: string | null;
   dropoff_location: string | null;
+  eta: string | null;
 }
 
 export function AvailableTasksSection() {
@@ -50,7 +51,7 @@ export function AvailableTasksSection() {
     // Load available tasks (admin tasks only - must have task_name)
     const { data: available } = await supabase
       .from("tasks")
-      .select("id, task_name, notes, status, created_at, passenger_name, pickup_location, dropoff_location")
+      .select("id, task_name, notes, status, created_at, eta, passenger_name, pickup_location, dropoff_location")
       .eq("status", "available")
       .not("task_name", "is", null)
       .order("created_at", { ascending: false });
@@ -60,7 +61,7 @@ export function AvailableTasksSection() {
     // Load accepted tasks for current driver (admin tasks only - must have task_name)
     const { data: accepted } = await supabase
       .from("tasks")
-      .select("id, task_name, notes, status, created_at, passenger_name, pickup_location, dropoff_location")
+      .select("id, task_name, notes, status, created_at, eta, passenger_name, pickup_location, dropoff_location")
       .in("status", ["accepted", "in_progress", "on_board"])
       .eq("driver_id", currentDriver?.id)
       .not("task_name", "is", null)
@@ -221,7 +222,10 @@ export function AvailableTasksSection() {
                       </h3>
                       <div className="flex items-start gap-2 mt-2 text-sm text-muted-foreground">
                         <Clock className="h-4 w-4 mt-0.5 flex-shrink-0" />
-                        <span>{new Date(task.created_at).toLocaleString()}</span>
+                        <span>
+                          <span className="font-medium">Deadline:</span>{" "}
+                          {task.eta ? new Date(task.eta).toLocaleString() : "Not set"}
+                        </span>
                       </div>
                     </div>
 
