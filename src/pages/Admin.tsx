@@ -35,6 +35,7 @@ export default function Admin() {
     dropoff_location: "",
     task_name: "",
     notes: "",
+    deadline: "",
   });
   const [driverForm, setDriverForm] = useState({
     name: "",
@@ -86,9 +87,9 @@ export default function Admin() {
   }
 
   async function createOrUpdateTask() {
-    const { passenger_name, pickup_location, dropoff_location, task_name, notes } = taskForm;
-    if (!passenger_name || !pickup_location || !dropoff_location) {
-      toast({ title: "Please fill all required fields", variant: "destructive" });
+    const { passenger_name, pickup_location, dropoff_location, task_name, notes, deadline } = taskForm;
+    if (!task_name || !pickup_location || !deadline) {
+      toast({ title: "Please fill Task Name, Pickup Location, and Deadline", variant: "destructive" });
       return;
     }
 
@@ -96,11 +97,12 @@ export default function Admin() {
       const { error } = await supabase
         .from("tasks")
         .update({ 
-          passenger_name,
+          passenger_name: passenger_name || "Unknown",
           pickup_location,
-          dropoff_location,
-          task_name, 
-          notes 
+          dropoff_location: dropoff_location || "TBD",
+          task_name,
+          notes,
+          eta: deadline
         })
         .eq("id", editingTask.id);
 
@@ -113,11 +115,12 @@ export default function Admin() {
       const { error } = await supabase
         .from("tasks")
         .insert([{ 
-          passenger_name,
+          passenger_name: passenger_name || "Unknown",
           pickup_location,
-          dropoff_location,
-          task_name, 
-          notes, 
+          dropoff_location: dropoff_location || "TBD",
+          task_name,
+          notes,
+          eta: deadline,
           status: "available"
         }]);
 
@@ -130,7 +133,7 @@ export default function Admin() {
 
     setShowTaskDialog(false);
     setEditingTask(null);
-    setTaskForm({ passenger_name: "", pickup_location: "", dropoff_location: "", task_name: "", notes: "" });
+    setTaskForm({ passenger_name: "", pickup_location: "", dropoff_location: "", task_name: "", notes: "", deadline: "" });
     loadData();
   }
 
@@ -333,7 +336,7 @@ export default function Admin() {
               <Button
                 onClick={() => {
                   setEditingTask(null);
-                  setTaskForm({ passenger_name: "", pickup_location: "", dropoff_location: "", task_name: "", notes: "" });
+                  setTaskForm({ passenger_name: "", pickup_location: "", dropoff_location: "", task_name: "", notes: "", deadline: "" });
                   setShowTaskDialog(true);
                 }}
               >
@@ -399,6 +402,7 @@ export default function Admin() {
                                 dropoff_location: task.dropoff_location || "",
                                 task_name: task.task_name || "",
                                 notes: task.notes || "",
+                                deadline: (typeof task.eta === "string" ? task.eta : "") || "",
                               });
                               setShowTaskDialog(true);
                             }}
@@ -642,11 +646,11 @@ export default function Admin() {
           </DialogHeader>
           <div className="space-y-4">
             <div>
-              <Label>Passenger Name *</Label>
+              <Label>Task Name *</Label>
               <Input
-                value={taskForm.passenger_name}
-                onChange={(e) => setTaskForm({ ...taskForm, passenger_name: e.target.value })}
-                placeholder="Enter passenger name"
+                value={taskForm.task_name}
+                onChange={(e) => setTaskForm({ ...taskForm, task_name: e.target.value })}
+                placeholder="Enter task name"
               />
             </div>
             <div>
@@ -658,19 +662,28 @@ export default function Admin() {
               />
             </div>
             <div>
-              <Label>Dropoff Location *</Label>
+              <Label>Deadline *</Label>
               <Input
-                value={taskForm.dropoff_location}
-                onChange={(e) => setTaskForm({ ...taskForm, dropoff_location: e.target.value })}
-                placeholder="Enter dropoff location"
+                type="datetime-local"
+                value={taskForm.deadline}
+                onChange={(e) => setTaskForm({ ...taskForm, deadline: e.target.value })}
+                placeholder="Select deadline"
               />
             </div>
             <div>
-              <Label>Task Name (optional)</Label>
+              <Label>Dropoff Location</Label>
               <Input
-                value={taskForm.task_name}
-                onChange={(e) => setTaskForm({ ...taskForm, task_name: e.target.value })}
-                placeholder="Enter task name"
+                value={taskForm.dropoff_location}
+                onChange={(e) => setTaskForm({ ...taskForm, dropoff_location: e.target.value })}
+                placeholder="Enter dropoff location (optional)"
+              />
+            </div>
+            <div>
+              <Label>Passenger Name (optional)</Label>
+              <Input
+                value={taskForm.passenger_name}
+                onChange={(e) => setTaskForm({ ...taskForm, passenger_name: e.target.value })}
+                placeholder="Enter passenger name (optional)"
               />
             </div>
             <div>
