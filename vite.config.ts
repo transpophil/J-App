@@ -5,7 +5,8 @@ import { componentTagger } from "lovable-tagger";
 
 // Determine base path for GitHub Pages
 const isGitHubPages = process.env.GITHUB_PAGES === 'true';
-const basePath = isGitHubPages ? '/your-repo-name/' : '/';
+const repoName = process.env.GITHUB_REPO_NAME || '';
+const basePath = isGitHubPages && repoName ? `/${repoName}/` : '/';
 
 // https://vitejs.dev/config/
 export default defineConfig(({ mode }) => ({
