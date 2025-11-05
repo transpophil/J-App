@@ -424,7 +424,7 @@ export default function Dashboard() {
       {/* Content */}
       <div className="relative z-10">
       {/* Header */}
-        <header className="bg-gradient-to-br from-emerald-100 via-teal-50 to-cyan-100 border-b border-border/40 shadow-sm">
+        <header className="bg-gradient-to-br from-background via-muted/30 to-background border-b border-border shadow-sm">
         <div className="container mx-auto px-6 py-5 flex items-start justify-between">
           <div className="flex items-start gap-4">
             <img src={logo} alt="App Logo" className="w-16 h-16 rounded-2xl shadow-md" />
