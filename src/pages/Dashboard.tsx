@@ -13,7 +13,6 @@ import { sendTelegramTemplate } from "@/utils/telegram";
 import { LogOut, MapPin, Clock, CheckCircle2, AlertCircle, Navigation } from "lucide-react";
 import { TimeWheel } from "@/components/TimeWheel";
 import { TaskSection } from "@/components/TaskSection";
-import { TaskNotificationBell } from "@/components/TaskNotificationBell";
 import TasksBoard from "@/components/TasksBoard";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import logo from "@/assets/j-app-logo.jpg";
@@ -31,6 +30,7 @@ export default function Dashboard() {
   const [showDelaySelection, setShowDelaySelection] = useState(false);
   const [showEtaDialog, setShowEtaDialog] = useState(false);
   const [tripMode, setTripMode] = useState<"pickup" | "travel">("pickup");
+  const [hasNewTasks, setHasNewTasks] = useState(false);
 
   useEffect(() => {
     if (!currentDriver) {
@@ -38,12 +38,14 @@ export default function Dashboard() {
       return;
     }
     loadData();
+    loadNewTasks();
 
     // Set up realtime subscription
     const channel = supabase
       .channel("tasks_changes")
       .on("postgres_changes", { event: "*", schema: "public", table: "tasks" }, () => {
         loadData();
+        loadNewTasks();
       })
       .subscribe();
 
@@ -51,6 +53,15 @@ export default function Dashboard() {
       supabase.removeChannel(channel);
     };
   }, [currentDriver, navigate]);
+
+  async function loadNewTasks() {
+    const { data } = await supabase
+      .from("tasks")
+      .select("id")
+      .eq("status", "available")
+      .not("task_name", "is", null);
+    setHasNewTasks((data?.length ?? 0) > 0);
+  }
 
   async function loadData() {
     if (!currentDriver) return;
@@ -435,7 +446,6 @@ export default function Dashboard() {
             </div>
           </div>
           <div className="flex gap-2">
-            <TaskNotificationBell />
             <Button variant="outline" size="icon" onClick={handleLogout} className="bg-white/80 hover:bg-white">
               <LogOut className="h-5 w-5" />
             </Button>
@@ -451,7 +461,12 @@ export default function Dashboard() {
         <Tabs defaultValue="tasks" className="w-full">
           <TabsList className="w-full justify-center gap-4 p-2">
             <TabsTrigger value="pickups" className="px-6 py-3 text-lg font-bold">Pick Ups</TabsTrigger>
-            <TabsTrigger value="tasks" className="px-6 py-3 text-lg font-bold">Tasks</TabsTrigger>
+            <TabsTrigger value="tasks" className="px-6 py-3 text-lg font-bold relative">
+              Tasks
+              {hasNewTasks && (
+                <span className="absolute -top-1 -right-1 h-2 w-2 rounded-full bg-destructive ring-2 ring-background" />
+              )}
+            </TabsTrigger>
           </TabsList>
 
           <TabsContent value="tasks" className="mt-6">
