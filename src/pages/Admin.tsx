@@ -530,7 +530,11 @@ export default function Admin() {
                       <div className="flex justify-between items-start">
                         <div className="flex-1">
                           <Badge className="mb-2">Completed</Badge>
-                          <h3 className="font-semibold text-lg">{task.task_name || "Unnamed Task"}</h3>
+                          <h3 className="font-semibold text-lg">
+                            {task.task_name && task.task_name.trim().length > 0
+                              ? task.task_name
+                              : `Pick Up ${driver?.name ?? "Unknown"}`}
+                          </h3>
                           {task.passenger_name && (
                             <p className="text-sm text-muted-foreground mt-1">
                               <span className="font-medium text-foreground">Passenger:</span> {task.passenger_name}
