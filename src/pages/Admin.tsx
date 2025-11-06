@@ -97,11 +97,11 @@ export default function Admin() {
       const { error } = await supabase
         .from("tasks")
         .update({ 
-          passenger_name: passenger_name || "Unknown",
-          pickup_location,
-          dropoff_location: dropoff_location || "TBD",
+          passenger_name: passenger_name || null,
+          pickup_location: pickup_location || null,
+          dropoff_location: dropoff_location || null,
           task_name,
-          notes,
+          notes: notes || null,
           eta: deadline || null
         })
         .eq("id", editingTask.id);
@@ -115,11 +115,11 @@ export default function Admin() {
       const { error } = await supabase
         .from("tasks")
         .insert([{ 
-          passenger_name: passenger_name || "Unknown",
-          pickup_location: pickup_location || "",
-          dropoff_location: dropoff_location || "TBD",
+          passenger_name: passenger_name || null,
+          pickup_location: pickup_location || null,
+          dropoff_location: dropoff_location || null,
           task_name,
-          notes,
+          notes: notes || null,
           eta: deadline || null,
           status: "available"
         }]);
@@ -365,15 +365,21 @@ export default function Admin() {
                               {task.status}
                             </Badge>
                           </div>
-                          <p className="text-sm text-muted-foreground mt-1">
-                            <span className="font-medium">Passenger:</span> {task.passenger_name}
-                          </p>
-                          <p className="text-sm text-muted-foreground">
-                            <span className="font-medium">From:</span> {task.pickup_location}
-                          </p>
-                          <p className="text-sm text-muted-foreground">
-                            <span className="font-medium">To:</span> {task.dropoff_location}
-                          </p>
+                          {task.passenger_name && (
+                            <p className="text-sm text-muted-foreground mt-1">
+                              <span className="font-medium">Passenger:</span> {task.passenger_name}
+                            </p>
+                          )}
+                          {task.pickup_location && (
+                            <p className="text-sm text-muted-foreground">
+                              <span className="font-medium">From:</span> {task.pickup_location}
+                            </p>
+                          )}
+                          {task.dropoff_location && (
+                            <p className="text-sm text-muted-foreground">
+                              <span className="font-medium">To:</span> {task.dropoff_location}
+                            </p>
+                          )}
                           {task.notes && (
                             <p className="text-sm text-muted-foreground mt-1">
                               <span className="font-medium">Notes:</span> {task.notes}
@@ -436,15 +442,21 @@ export default function Admin() {
                         <div className="flex-1">
                           <Badge className="mb-2">Completed</Badge>
                           <h3 className="font-semibold text-lg">{task.task_name || "Unnamed Task"}</h3>
-                          <p className="text-sm text-muted-foreground mt-1">
-                            <span className="font-medium text-foreground">Passenger:</span> {task.passenger_name}
-                          </p>
-                          <p className="text-sm text-muted-foreground">
-                            <span className="font-medium text-foreground">From:</span> {task.pickup_location}
-                          </p>
-                          <p className="text-sm text-muted-foreground">
-                            <span className="font-medium text-foreground">To:</span> {task.dropoff_location}
-                          </p>
+                          {task.passenger_name && (
+                            <p className="text-sm text-muted-foreground mt-1">
+                              <span className="font-medium text-foreground">Passenger:</span> {task.passenger_name}
+                            </p>
+                          )}
+                          {task.pickup_location && (
+                            <p className="text-sm text-muted-foreground">
+                              <span className="font-medium text-foreground">From:</span> {task.pickup_location}
+                            </p>
+                          )}
+                          {task.dropoff_location && (
+                            <p className="text-sm text-muted-foreground">
+                              <span className="font-medium text-foreground">To:</span> {task.dropoff_location}
+                            </p>
+                          )}
                           <p className="text-sm text-muted-foreground mt-2">
                             <span className="font-medium text-foreground">Driver:</span> {driver?.name || "Unknown"}
                           </p>
