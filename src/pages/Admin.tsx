@@ -275,6 +275,79 @@ export default function Admin() {
     toast({ title: "Settings updated" });
   }
 
+  function escapeCSV(value: any): string {
+    const str = value === null || value === undefined ? "" : String(value);
+    if (/[",\n]/.test(str)) {
+      return `"${str.replace(/"/g, '""')}"`;
+    }
+    return str;
+  }
+
+  async function exportAndClearOlderCompleted() {
+    const completed = [...(tasks || [])]
+      .filter((t) => t.status === "completed")
+      .sort((a, b) => new Date(a.completed_at || 0).getTime() - new Date(b.completed_at || 0).getTime());
+
+    if (completed.length <= 20) {
+      toast({ title: "Nothing to export", description: "There are 20 or fewer completed tasks." });
+      return;
+    }
+
+    const older = completed.slice(0, completed.length - 20);
+    const headers = [
+      "id",
+      "task_name",
+      "passenger_name",
+      "pickup_location",
+      "dropoff_location",
+      "notes",
+      "status",
+      "created_at",
+      "accepted_at",
+      "completed_at",
+      "driver_id",
+      "eta",
+      "delay_minutes",
+    ];
+    const rows = older.map((t) =>
+      [
+        escapeCSV(t.id),
+        escapeCSV(t.task_name),
+        escapeCSV(t.passenger_name),
+        escapeCSV(t.pickup_location),
+        escapeCSV(t.dropoff_location),
+        escapeCSV(t.notes),
+        escapeCSV(t.status),
+        escapeCSV(t.created_at),
+        escapeCSV(t.accepted_at),
+        escapeCSV(t.completed_at),
+        escapeCSV(t.driver_id),
+        escapeCSV(t.eta),
+        escapeCSV(t.delay_minutes),
+      ].join(","),
+    );
+    const csvContent = [headers.join(","), ...rows].join("\n");
+    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+    const timestamp = new Date().toISOString().replace(/[:.]/g, "-");
+    const filename = `completed_tasks_export_${timestamp}.csv`;
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = filename;
+    a.click();
+    URL.revokeObjectURL(url);
+
+    const idsToDelete = older.map((t) => t.id);
+    const { error } = await supabase.from("tasks").delete().in("id", idsToDelete);
+    if (error) {
+      toast({ title: "Failed to clear older tasks", description: error.message, variant: "destructive" });
+      return;
+    }
+
+    toast({ title: `Exported ${older.length} tasks and kept the latest 20.` });
+    await loadData();
+  }
+
   if (!isAuthenticated) {
     return (
       <div className="min-h-screen flex items-center justify-center p-4 bg-gradient-to-br from-background via-muted/20 to-background">
@@ -429,6 +502,17 @@ export default function Admin() {
                   );
                 })
               )}
+            </div>
+
+            {/* Export & clear older completed (keep latest 20) */}
+            <div className="flex justify-end">
+              <Button
+                variant="outline"
+                onClick={exportAndClearOlderCompleted}
+                disabled={tasks.filter((t) => t.status === "completed").length <= 20}
+              >
+                Export older completed to CSV & clear
+              </Button>
             </div>
 
             {/* Done Tasks */}

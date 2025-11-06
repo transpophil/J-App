@@ -32,7 +32,6 @@ export function TasksBoard() {
 
   const [newTasks, setNewTasks] = useState<Task[]>([]);
   const [acceptedTasks, setAcceptedTasks] = useState<Task[]>([]);
-  const [doneTasks, setDoneTasks] = useState<Task[]>([]);
 
   useEffect(() => {
     loadTasks();
@@ -73,20 +72,6 @@ export function TasksBoard() {
       driver_name: t?.drivers?.name ?? null,
     })) as Task[];
     setAcceptedTasks(acceptedWithDriver);
-
-    // Done tasks: show completed_at and driver name
-    const { data: completed } = await supabase
-      .from("tasks")
-      .select("id, task_name, notes, status, created_at, completed_at, eta, passenger_name, pickup_location, dropoff_location, driver_id, drivers(name)")
-      .eq("status", "completed")
-      .not("task_name", "is", null)
-      .order("completed_at", { ascending: false });
-
-    const doneWithDriver = (completed || []).map((t: any) => ({
-      ...t,
-      driver_name: t?.drivers?.name ?? null,
-    })) as Task[];
-    setDoneTasks(doneWithDriver);
   }
 
   async function acceptTask(taskId: string) {
@@ -363,97 +348,6 @@ export function TasksBoard() {
                       In progress
                     </Button>
                   )}
-                </AccordionContent>
-              </AccordionItem>
-            ))}
-          </Accordion>
-        )}
-      </Card>
-
-      {/* Done */}
-      <Card className="p-6 shadow-elevated bg-card/80 backdrop-blur-md border-border/50">
-        <div className="flex items-center justify-between mb-4">
-          <h2 className="text-xl font-bold text-foreground">Done</h2>
-          <Badge variant="secondary">{doneTasks.length}</Badge>
-        </div>
-        {doneTasks.length === 0 ? (
-          <p className="text-sm text-muted-foreground">No completed tasks.</p>
-        ) : (
-          <Accordion type="single" collapsible className="w-full">
-            {doneTasks.map((task) => (
-              <AccordionItem key={task.id} value={task.id} className="border rounded-md mb-2">
-                <AccordionTrigger className="px-4 py-3 text-lg font-semibold">
-                  {task.task_name || "Unnamed Task"}
-                </AccordionTrigger>
-                <AccordionContent className="px-4 pb-4 space-y-3">
-                  <div className="space-y-2 text-sm">
-                    {task.driver_name && (
-                      <div className="flex items-start gap-2">
-                        <User className="h-4 w-4 mt-0.5 text-muted-foreground" />
-                        <span>
-                          <span className="font-medium">Completed by:</span> {task.driver_name}
-                        </span>
-                      </div>
-                    )}
-                    {task.completed_at && (
-                      <div className="flex items-start gap-2">
-                        <Clock className="h-4 w-4 mt-0.5 text-muted-foreground" />
-                        <span>
-                          <span className="font-medium">Completed:</span>{" "}
-                          {new Date(task.completed_at).toLocaleString()}
-                        </span>
-                      </div>
-                    )}
-                    {task.eta && (
-                      <div className="flex items-start gap-2">
-                        <Clock className="h-4 w-4 mt-0.5 text-muted-foreground" />
-                        <span>
-                          <span className="font-medium">ETA:</span> {task.eta}
-                        </span>
-                      </div>
-                    )}
-                    {task.passenger_name && (
-                      <div className="flex items-start gap-2">
-                        <User className="h-4 w-4 mt-0.5 text-muted-foreground" />
-                        <span>
-                          <span className="font-medium">Passenger:</span> {task.passenger_name}
-                        </span>
-                      </div>
-                    )}
-                    {task.pickup_location && (
-                      <div className="flex items-start gap-2 justify-between">
-                        <div className="flex items-start gap-2">
-                          <MapPin className="h-4 w-4 mt-0.5 text-muted-foreground" />
-                          <span>
-                            <span className="font-medium">Pickup:</span> {task.pickup_location}
-                          </span>
-                        </div>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => openTaskRoute(task.pickup_location!)}
-                          className="shrink-0"
-                        >
-                          <Navigation className="mr-2 h-4 w-4" />
-                          Map
-                        </Button>
-                      </div>
-                    )}
-                    {task.dropoff_location && (
-                      <div className="flex items-start gap-2">
-                        <MapPin className="h-4 w-4 mt-0.5 text-muted-foreground" />
-                        <span>
-                          <span className="font-medium">Dropoff:</span> {task.dropoff_location}
-                        </span>
-                      </div>
-                    )}
-                    {task.notes && (
-                      <div className="p-3 bg-muted/50 rounded-md">
-                        <p className="text-sm font-medium text-foreground">Notes:</p>
-                        <p className="text-sm text-muted-foreground mt-1">{task.notes}</p>
-                      </div>
-                    )}
-                  </div>
                 </AccordionContent>
               </AccordionItem>
             ))}
