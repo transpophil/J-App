@@ -25,8 +25,6 @@ export default function Dashboard() {
   const [currentTask, setCurrentTask] = useState<any>(null);
   const [passengers, setPassengers] = useState<any[]>([]);
   const [selectedPassengers, setSelectedPassengers] = useState<string[]>([]);
-  const [destinations, setDestinations] = useState<any[]>([]);
-  const [selectedDestination, setSelectedDestination] = useState<string>("");
   const [eta, setEta] = useState<string>("12:00");
   const [delayPassenger, setDelayPassenger] = useState<string>("");
   const [showDelaySelection, setShowDelaySelection] = useState(false);
@@ -94,13 +92,6 @@ export default function Dashboard() {
       .order("name");
     setPassengers(passengersData || []);
 
-    // Load destinations
-    const { data: destinationsData } = await supabase
-      .from("destinations")
-      .select("*")
-      .order("name");
-    setDestinations(destinationsData || []);
-
     // Load current passenger trip task for this driver (passenger trips only - no task_name)
     const { data: current } = await supabase
       .from("tasks")
@@ -144,8 +135,8 @@ export default function Dashboard() {
   }
 
   function handleLetsGoClick() {
-    if (selectedPassengers.length === 0 || !selectedDestination || !currentDriver) {
-      toast({ title: "Please select passengers and a destination", variant: "destructive" });
+    if (selectedPassengers.length === 0 || !currentDriver) {
+      toast({ title: "Please select at least one passenger", variant: "destructive" });
       return;
     }
     setShowEtaDialog(true);
@@ -156,10 +147,6 @@ export default function Dashboard() {
       toast({ title: "Please set ETA", variant: "destructive" });
       return;
     }
-
-    // destination is preferred, fallback to existing task dropoff if editing
-    const destinationObj = destinations.find(d => d.id === selectedDestination);
-    const chosenDropoff = destinationObj?.address || currentTask?.dropoff_location || "";
 
     const selectedPassengerData = passengers.filter(p => selectedPassengers.includes(p.id));
     if (selectedPassengerData.length === 0) {
@@ -183,7 +170,7 @@ export default function Dashboard() {
     const taskData = {
       passenger_name: finalPassengerNames,
       pickup_location: finalPickupLocations,
-      dropoff_location: chosenDropoff || finalPickupLocations,
+      dropoff_location: finalPickupLocations,
       status: "on_board",
       driver_id: currentDriver.id,
       eta: eta,
@@ -359,11 +346,11 @@ export default function Dashboard() {
 
   // Function to open Google Maps with route
   function openGoogleMapsRoute() {
-    if (selectedPassengers.length === 0 || !selectedDestination) {
-      toast({ title: "Please select passengers and a destination first", variant: "destructive" });
+    if (selectedPassengers.length === 0) {
+      toast({ title: "Bitte zuerst Passagiere auswählen", variant: "destructive" });
       return;
     }
-    // Build waypoints in the order of selected passengers
+    // Orte in der Reihenfolge der Auswahl bestimmen
     const orderedLocations = selectedPassengers
       .map((id) => passengers.find((p) => p.id === id)?.default_pickup_location)
       .filter((loc): loc is string => Boolean(loc));
@@ -371,8 +358,7 @@ export default function Dashboard() {
       toast({ title: "Keine Passagiere ausgewählt", variant: "destructive" });
       return;
     }
-    const destinationObj = destinations.find((d) => d.id === selectedDestination);
-    const destination = destinationObj?.address || orderedLocations[orderedLocations.length - 1];
+    const destination = orderedLocations[orderedLocations.length - 1];
     const waypointList = orderedLocations.slice(0, -1);
 
     const isIOS = /iPhone|iPad|iPod/i.test(navigator.userAgent);
@@ -504,83 +490,46 @@ export default function Dashboard() {
                       ) : (
                         <>
                           <h2 className="text-2xl font-bold text-foreground mb-2">Start Trip</h2>
-                          <p className="text-muted-foreground">Select passengers and destination, then press Let's Start</p>
+                          <p className="text-muted-foreground">Select passengers and press Let's Go</p>
                         </>
                       )}
                     </div>
 
-                    <Tabs defaultValue="passengers" className="w-full">
-                      <TabsList className="w-full justify-center gap-4 p-2">
-                        <TabsTrigger value="passengers" className="px-6 py-3 text-lg font-bold">Passengers</TabsTrigger>
-                        <TabsTrigger value="destinations" className="px-6 py-3 text-lg font-bold">Destinations</TabsTrigger>
-                      </TabsList>
-
-                      <TabsContent value="passengers" className="space-y-3 mt-4">
-                        <Label>Passengers *</Label>
-                        <div className="space-y-2 max-h-80 overflow-y-auto pr-2">
-                          {passengers.map((passenger) => (
-                            <div
-                              key={passenger.id}
-                              onClick={() => togglePassengerSelection(passenger.id)}
-                              className={`p-4 border rounded-lg cursor-pointer transition-all ${
+                    <div className="space-y-3">
+                      <Label>Passengers *</Label>
+                      <div className="space-y-2 max-h-80 overflow-y-auto pr-2">
+                        {passengers.map((passenger) => (
+                          <div
+                            key={passenger.id}
+                            onClick={() => togglePassengerSelection(passenger.id)}
+                            className={`p-4 border rounded-lg cursor-pointer transition-all ${
+                              selectedPassengers.includes(passenger.id)
+                                ? "border-primary bg-primary/10"
+                                : "border-border hover:border-primary/50"
+                            }`}
+                          >
+                            <div className="flex items-start gap-3">
+                              <div className={`mt-1 w-5 h-5 rounded border-2 flex items-center justify-center ${
                                 selectedPassengers.includes(passenger.id)
-                                  ? "border-primary bg-primary/10"
-                                  : "border-border hover:border-primary/50"
-                              }`}
-                            >
-                              <div className="flex items-start gap-3">
-                                <div className={`mt-1 w-5 h-5 rounded border-2 flex items-center justify-center ${
-                                  selectedPassengers.includes(passenger.id)
-                                    ? "border-primary bg-primary"
-                                    : "border-border"
-                                }`}>
-                                  {selectedPassengers.includes(passenger.id) && (
-                                    <CheckCircle2 className="h-4 w-4 text-primary-foreground" />
-                                  )}
-                                </div>
-                                <div className="flex-1">
-                                  <p className="font-semibold text-foreground">{passenger.name}</p>
-                                  <p className="text-sm text-muted-foreground">{passenger.default_pickup_location}</p>
-                                </div>
+                                  ? "border-primary bg-primary"
+                                  : "border-border"
+                              }`}>
+                                {selectedPassengers.includes(passenger.id) && (
+                                  <CheckCircle2 className="h-4 w-4 text-primary-foreground" />
+                                )}
+                              </div>
+                              <div className="flex-1">
+                                <p className="font-semibold text-foreground">{passenger.name}</p>
+                                <p className="text-sm text-muted-foreground">{passenger.default_pickup_location}</p>
                               </div>
                             </div>
-                          ))}
-                        </div>
-                      </TabsContent>
-
-                      <TabsContent value="destinations" className="space-y-3 mt-4">
-                        <Label>Destinations *</Label>
-                        <div className="space-y-2 max-h-80 overflow-y-auto pr-2">
-                          {destinations.map((destination) => {
-                            const selected = selectedDestination === destination.id;
-                            return (
-                              <div
-                                key={destination.id}
-                                onClick={() => setSelectedDestination(selected ? "" : destination.id)}
-                                className={`p-4 border rounded-lg cursor-pointer transition-all ${
-                                  selected ? "border-primary bg-primary/10" : "border-border hover:border-primary/50"
-                                }`}
-                              >
-                                <div className="flex items-start gap-3">
-                                  <div className={`mt-1 w-5 h-5 rounded border-2 flex items-center justify-center ${
-                                    selected ? "border-primary bg-primary" : "border-border"
-                                  }`}>
-                                    {selected && <CheckCircle2 className="h-4 w-4 text-primary-foreground" />}
-                                  </div>
-                                  <div className="flex-1">
-                                    <p className="font-semibold text-foreground">{destination.name}</p>
-                                    <p className="text-sm text-muted-foreground">{destination.address}</p>
-                                  </div>
-                                </div>
-                              </div>
-                            );
-                          })}
-                        </div>
-                      </TabsContent>
-                    </Tabs>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
 
                     <div className="space-y-3">
-                      {selectedPassengers.length > 0 && selectedDestination && (
+                      {selectedPassengers.length > 0 && (
                         <Button 
                           className="w-full" 
                           variant="outline"
@@ -595,10 +544,10 @@ export default function Dashboard() {
                         className="w-full" 
                         size="lg"
                         onClick={handleLetsGoClick}
-                        disabled={selectedPassengers.length === 0 || !selectedDestination}
+                        disabled={selectedPassengers.length === 0}
                       >
                         <CheckCircle2 className="mr-2 h-5 w-5" />
-                        Let's Start
+                        Let's Go
                       </Button>
 
                       <div className="relative">

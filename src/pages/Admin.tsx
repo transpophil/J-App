@@ -20,18 +20,15 @@ export default function Admin() {
   const [passkey, setPasskey] = useState("");
   const [drivers, setDrivers] = useState<any[]>([]);
   const [passengers, setPassengers] = useState<any[]>([]);
-  const [destinations, setDestinations] = useState<any[]>([]);
   const [tasks, setTasks] = useState<any[]>([]);
   const [templates, setTemplates] = useState<any[]>([]);
   const [settings, setSettings] = useState<any>({});
   const [showTaskDialog, setShowTaskDialog] = useState(false);
   const [showDriverDialog, setShowDriverDialog] = useState(false);
   const [showPassengerDialog, setShowPassengerDialog] = useState(false);
-  const [showDestinationDialog, setShowDestinationDialog] = useState(false);
   const [editingTask, setEditingTask] = useState<any>(null);
   const [editingDriver, setEditingDriver] = useState<any>(null);
   const [editingPassenger, setEditingPassenger] = useState<any>(null);
-  const [editingDestination, setEditingDestination] = useState<any>(null);
   const [taskForm, setTaskForm] = useState({
     passenger_name: "",
     pickup_location: "",
@@ -49,10 +46,6 @@ export default function Admin() {
   const [passengerForm, setPassengerForm] = useState({
     name: "",
     default_pickup_location: "",
-  });
-  const [destinationForm, setDestinationForm] = useState({
-    name: "",
-    address: "",
   });
 
   useEffect(() => {
@@ -73,10 +66,9 @@ export default function Admin() {
   }
 
   async function loadData() {
-    const [driversRes, passengersRes, destinationsRes, tasksRes, templatesRes, settingsRes] = await Promise.all([
+    const [driversRes, passengersRes, tasksRes, templatesRes, settingsRes] = await Promise.all([
       supabase.from("drivers").select("*").order("name"),
       supabase.from("passengers").select("*").order("name"),
-      supabase.from("destinations").select("*").order("name"),
       supabase.from("tasks").select("*").order("created_at", { ascending: false }),
       supabase.from("message_templates").select("*").order("template_key"),
       supabase.from("app_settings").select("*"),
@@ -84,7 +76,6 @@ export default function Admin() {
 
     setDrivers(driversRes.data || []);
     setPassengers(passengersRes.data || []);
-    setDestinations(destinationsRes.data || []);
     setTasks(tasksRes.data || []);
     setTemplates(templatesRes.data || []);
 
@@ -253,52 +244,6 @@ export default function Admin() {
     loadData();
   }
 
-  async function createOrUpdateDestination() {
-    const { name, address } = destinationForm;
-    if (!name || !address) {
-      toast({ title: "Please fill all fields", variant: "destructive" });
-      return;
-    }
-
-    if (editingDestination) {
-      const { error } = await supabase
-        .from("destinations")
-        .update({ name, address })
-        .eq("id", editingDestination.id);
-
-      if (error) {
-        toast({ title: "Failed to update destination", variant: "destructive" });
-        return;
-      }
-      toast({ title: "Destination updated" });
-    } else {
-      const { error } = await supabase
-        .from("destinations")
-        .insert([{ name, address }]);
-
-      if (error) {
-        toast({ title: "Failed to create destination", variant: "destructive" });
-        return;
-      }
-      toast({ title: "Destination created" });
-    }
-
-    setShowDestinationDialog(false);
-    setEditingDestination(null);
-    setDestinationForm({ name: "", address: "" });
-    loadData();
-  }
-
-  async function deleteDestination(id: string) {
-    const { error } = await supabase.from("destinations").delete().eq("id", id);
-    if (error) {
-      toast({ title: "Failed to delete destination", variant: "destructive" });
-      return;
-    }
-    toast({ title: "Destination deleted" });
-    loadData();
-  }
-
   async function updateTemplate(id: string, templateText: string) {
     const { error } = await supabase
       .from("message_templates")
@@ -455,11 +400,10 @@ export default function Admin() {
 
       <div className="container mx-auto px-4 py-8 max-w-5xl">
         <Tabs defaultValue="tasks" className="space-y-6">
-          <TabsList className="grid w-full grid-cols-6 gap-1">
+          <TabsList className="grid w-full grid-cols-5 gap-1">
             <TabsTrigger value="tasks" className="text-xs sm:text-sm">Tasks</TabsTrigger>
             <TabsTrigger value="drivers" className="text-xs sm:text-sm">Drivers</TabsTrigger>
             <TabsTrigger value="passengers" className="text-xs sm:text-sm">Passengers</TabsTrigger>
-            <TabsTrigger value="destinations" className="text-xs sm:text-sm">Destinations</TabsTrigger>
             <TabsTrigger value="templates" className="text-xs sm:text-sm">Templates</TabsTrigger>
             <TabsTrigger value="settings" className="text-xs sm:text-sm">Settings</TabsTrigger>
           </TabsList>
@@ -586,11 +530,7 @@ export default function Admin() {
                       <div className="flex justify-between items-start">
                         <div className="flex-1">
                           <Badge className="mb-2">Completed</Badge>
-                          <h3 className="font-semibold text-lg">
-                            {task.task_name && task.task_name.trim().length > 0
-                              ? task.task_name
-                              : `Pick Up ${driver?.name ?? "Unknown"}`}
-                          </h3>
+                          <h3 className="font-semibold text-lg">{task.task_name || "Unnamed Task"}</h3>
                           {task.passenger_name && (
                             <p className="text-sm text-muted-foreground mt-1">
                               <span className="font-medium text-foreground">Passenger:</span> {task.passenger_name}
@@ -721,52 +661,6 @@ export default function Admin() {
                         <Edit className="h-4 w-4" />
                       </Button>
                       <Button size="icon" variant="destructive" onClick={() => deletePassenger(passenger.id)}>
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
-                    </div>
-                  </div>
-                </Card>
-              ))}
-            </div>
-          </TabsContent>
-
-          <TabsContent value="destinations" className="space-y-4">
-            <div className="flex justify-between items-center">
-              <h2 className="text-2xl font-bold">Manage Destinations</h2>
-              <Button
-                onClick={() => {
-                  setEditingDestination(null);
-                  setDestinationForm({ name: "", address: "" });
-                  setShowDestinationDialog(true);
-                }}
-              >
-                <Plus className="mr-2 h-4 w-4" />
-                Add Destination
-              </Button>
-            </div>
-            <div className="space-y-3">
-              {destinations.map((destination) => (
-                <Card key={destination.id} className="p-4">
-                  <div className="flex justify-between items-start">
-                    <div className="flex-1">
-                      <h3 className="font-semibold text-lg">{destination.name}</h3>
-                      <p className="text-sm text-muted-foreground mt-1">
-                        <span className="font-medium">Address:</span> {destination.address}
-                      </p>
-                    </div>
-                    <div className="flex gap-2">
-                      <Button
-                        size="icon"
-                        variant="outline"
-                        onClick={() => {
-                          setEditingDestination(destination);
-                          setDestinationForm({ name: destination.name, address: destination.address });
-                          setShowDestinationDialog(true);
-                        }}
-                      >
-                        <Edit className="h-4 w-4" />
-                      </Button>
-                      <Button size="icon" variant="destructive" onClick={() => deleteDestination(destination.id)}>
                         <Trash2 className="h-4 w-4" />
                       </Button>
                     </div>
@@ -979,35 +873,6 @@ export default function Admin() {
             </div>
             <Button onClick={createOrUpdatePassenger} className="w-full">
               {editingPassenger ? "Update Passenger" : "Add Passenger"}
-            </Button>
-          </div>
-        </DialogContent>
-      </Dialog>
-
-      <Dialog open={showDestinationDialog} onOpenChange={setShowDestinationDialog}>
-        <DialogContent className="max-w-lg">
-          <DialogHeader>
-            <DialogTitle>{editingDestination ? "Edit Destination" : "Add New Destination"}</DialogTitle>
-          </DialogHeader>
-          <div className="space-y-4">
-            <div>
-              <Label>Destination Name *</Label>
-              <Input
-                value={destinationForm.name}
-                onChange={(e) => setDestinationForm({ ...destinationForm, name: e.target.value })}
-                placeholder="Enter destination name"
-              />
-            </div>
-            <div>
-              <Label>Address *</Label>
-              <Input
-                value={destinationForm.address}
-                onChange={(e) => setDestinationForm({ ...destinationForm, address: e.target.value })}
-                placeholder="Enter destination address"
-              />
-            </div>
-            <Button onClick={createOrUpdateDestination} className="w-full">
-              {editingDestination ? "Update Destination" : "Add Destination"}
             </Button>
           </div>
         </DialogContent>

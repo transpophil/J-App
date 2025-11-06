@@ -119,30 +119,6 @@ export type Database = {
         }
         Relationships: []
       }
-      destinations: {
-        Row: {
-          created_at: string
-          id: string
-          name: string
-          address: string
-          updated_at: string
-        }
-        Insert: {
-          created_at?: string
-          id?: string
-          name: string
-          address: string
-          updated_at?: string
-        }
-        Update: {
-          created_at?: string
-          id?: string
-          name?: string
-          address?: string
-          updated_at?: string
-        }
-        Relationships: []
-      }
       tasks: {
         Row: {
           accepted_at: string | null
