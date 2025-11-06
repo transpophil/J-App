@@ -490,7 +490,7 @@ export default function Dashboard() {
                       ) : (
                         <>
                           <h2 className="text-2xl font-bold text-foreground mb-2">Start Trip</h2>
-                          <p className="text-muted-foreground">Select passengers and destination and press Let's Go</p>
+                          <p className="text-muted-foreground">Select passengers and press Let's Go</p>
                         </>
                       )}
                     </div>
@@ -503,33 +503,24 @@ export default function Dashboard() {
                             key={passenger.id}
                             onClick={() => togglePassengerSelection(passenger.id)}
                             className={`p-4 border rounded-lg cursor-pointer transition-all ${
-                              passenger.is_important
-                                ? "border-orange-700 bg-orange-700/10"
-                                : selectedPassengers.includes(passenger.id)
-                                  ? "border-primary bg-primary/10"
-                                  : "border-border hover:border-primary/50"
+                              selectedPassengers.includes(passenger.id)
+                                ? "border-primary bg-primary/10"
+                                : "border-border hover:border-primary/50"
                             }`}
                           >
                             <div className="flex items-start gap-3">
                               <div className={`mt-1 w-5 h-5 rounded border-2 flex items-center justify-center ${
-                                passenger.is_important
-                                  ? "border-orange-700 bg-orange-700"
-                                  : selectedPassengers.includes(passenger.id)
-                                    ? "border-primary bg-primary"
-                                    : "border-border"
+                                selectedPassengers.includes(passenger.id)
+                                  ? "border-primary bg-primary"
+                                  : "border-border"
                               }`}>
-                                {(selectedPassengers.includes(passenger.id) || passenger.is_important) && (
-                                  <CheckCircle2 className={`h-4 w-4 ${
-                                    passenger.is_important ? "text-white" : "text-primary-foreground"
-                                  }`} />
+                                {selectedPassengers.includes(passenger.id) && (
+                                  <CheckCircle2 className="h-4 w-4 text-primary-foreground" />
                                 )}
                               </div>
                               <div className="flex-1">
                                 <p className="font-semibold text-foreground">{passenger.name}</p>
                                 <p className="text-sm text-muted-foreground">{passenger.default_pickup_location}</p>
-                                {passenger.is_important && (
-                                  <Badge className="mt-2 bg-orange-700 text-white hover:bg-orange-700">Important</Badge>
-                                )}
                               </div>
                             </div>
                           </div>

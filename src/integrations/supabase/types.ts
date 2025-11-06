@@ -101,7 +101,6 @@ export type Database = {
           default_pickup_location: string
           id: string
           name: string
-          is_important: boolean
           updated_at: string
         }
         Insert: {
@@ -109,7 +108,6 @@ export type Database = {
           default_pickup_location: string
           id?: string
           name: string
-          is_important?: boolean
           updated_at?: string
         }
         Update: {
@@ -117,7 +115,6 @@ export type Database = {
           default_pickup_location?: string
           id?: string
           name?: string
-          is_important?: boolean
           updated_at?: string
         }
         Relationships: []

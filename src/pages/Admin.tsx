@@ -12,7 +12,6 @@ import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
 import { ArrowLeft, Plus, Trash2, Edit } from "lucide-react";
 import logo from "@/assets/j-app-logo.jpg";
-import { Switch } from "@/components/ui/switch";
 
 export default function Admin() {
   const navigate = useNavigate();
@@ -638,45 +637,15 @@ export default function Admin() {
             </div>
             <div className="space-y-3">
               {passengers.map((passenger) => (
-                <Card
-                  key={passenger.id}
-                  className={`p-4 ${
-                    passenger.is_important ? "bg-green-600 text-white" : ""
-                  }`}
-                >
+                <Card key={passenger.id} className="p-4">
                   <div className="flex justify-between items-start">
                     <div className="flex-1">
                       <h3 className="font-semibold text-lg">{passenger.name}</h3>
-                      <p className={`text-sm mt-1 ${
-                        passenger.is_important ? "text-white/90" : "text-muted-foreground"
-                      }`}>
+                      <p className="text-sm text-muted-foreground mt-1">
                         <span className="font-medium">Default Pickup:</span> {passenger.default_pickup_location}
                       </p>
-                      {passenger.is_important && (
-                        <Badge className="mt-2 bg-white text-green-700 hover:bg-white">Important</Badge>
-                      )}
                     </div>
-                    <div className="flex gap-2 items-center">
-                      <div className="flex items-center gap-2">
-                        <Label className={passenger.is_important ? "text-white" : ""}>Important</Label>
-                        <Switch
-                          checked={!!passenger.is_important}
-                          onCheckedChange={async (value) => {
-                            const { error } = await supabase
-                              .from("passengers")
-                              .update({ is_important: value })
-                              .eq("id", passenger.id);
-                            if (error) {
-                              toast({ title: "Failed to update passenger", description: error.message, variant: "destructive" });
-                              return;
-                            }
-                            setPassengers((prev) =>
-                              prev.map((p) => (p.id === passenger.id ? { ...p, is_important: value } : p))
-                            );
-                            toast({ title: value ? "Marked as important" : "Unmarked as important" });
-                          }}
-                        />
-                      </div>
+                    <div className="flex gap-2">
                       <Button
                         size="icon"
                         variant="outline"
