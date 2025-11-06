@@ -17,6 +17,8 @@ interface Task {
   pickup_location: string | null;
   dropoff_location: string | null;
   eta: string | null;
+  driver_id: string | null;
+  driver_name?: string | null;
 }
 
 export function AvailableTasksSection() {
@@ -58,16 +60,19 @@ export function AvailableTasksSection() {
 
     setAvailableTasks(available || []);
 
-    // Load accepted tasks for current driver (admin tasks only - must have task_name)
+    // Load accepted tasks for all drivers (admin tasks only - must have task_name) and include driver name
     const { data: accepted } = await supabase
       .from("tasks")
-      .select("id, task_name, notes, status, created_at, eta, passenger_name, pickup_location, dropoff_location")
+      .select("id, task_name, notes, status, created_at, eta, passenger_name, pickup_location, dropoff_location, driver_id, drivers(name)")
       .in("status", ["accepted", "in_progress", "on_board"])
-      .eq("driver_id", currentDriver?.id)
       .not("task_name", "is", null)
       .order("accepted_at", { ascending: false });
 
-    setAcceptedTasks(accepted || []);
+    const withDriverName = (accepted || []).map((t: any) => ({
+      ...t,
+      driver_name: t?.drivers?.name ?? null,
+    }));
+    setAcceptedTasks(withDriverName);
   }
 
   async function acceptTask(taskId: string) {
@@ -128,7 +133,7 @@ export function AvailableTasksSection() {
       {/* Accepted Tasks - Show full details with Done Button */}
       {acceptedTasks.length > 0 && (
         <Card className="p-6 shadow-elevated bg-card/80 backdrop-blur-md border-border/50">
-          <h2 className="text-xl font-bold text-foreground mb-4">My Tasks</h2>
+          <h2 className="text-xl font-bold text-foreground mb-4">Accepted Tasks</h2>
 
           <div className="space-y-3">
             {acceptedTasks.map((task) => (
@@ -144,6 +149,15 @@ export function AvailableTasksSection() {
                   </div>
 
                   <div className="space-y-2 text-sm">
+                    {(task.driver_name || task.driver_id) && (
+                      <div className="flex items-start gap-2">
+                        <User className="h-4 w-4 mt-0.5 flex-shrink-0 text-muted-foreground" />
+                        <span>
+                          <span className="font-medium">Accepted by:</span> {task.driver_name || "Unknown"}
+                        </span>
+                      </div>
+                    )}
+                    
                     {task.passenger_name && (
                       <div className="flex items-start gap-2">
                         <User className="h-4 w-4 mt-0.5 flex-shrink-0 text-muted-foreground" />
@@ -186,14 +200,21 @@ export function AvailableTasksSection() {
                     </div>
                   </div>
 
-                  <Button 
-                    className="w-full bg-primary hover:bg-primary/90" 
-                    size="default"
-                    onClick={() => markTaskDone(task.id)}
-                  >
-                    <CheckCircle2 className="mr-2 h-4 w-4" />
-                    Done
-                  </Button>
+                  {currentDriver?.id === task.driver_id ? (
+                    <Button 
+                      className="w-full bg-primary hover:bg-primary/90" 
+                      size="default"
+                      onClick={() => markTaskDone(task.id)}
+                    >
+                      <CheckCircle2 className="mr-2 h-4 w-4" />
+                      Done
+                    </Button>
+                  ) : (
+                    <Button className="w-full" variant="secondary" disabled>
+                      <Clock className="mr-2 h-4 w-4" />
+                      In progress
+                    </Button>
+                  )}
                 </div>
               </Card>
             ))}
