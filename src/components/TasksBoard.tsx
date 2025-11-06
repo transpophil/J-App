@@ -8,7 +8,7 @@ import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
-import { CheckCircle2, Clock, User, MapPin } from "lucide-react";
+import { CheckCircle2, Clock, User, MapPin, Navigation } from "lucide-react";
 
 interface Task {
   id: string;
@@ -128,6 +128,37 @@ export function TasksBoard() {
     loadTasks();
   }
 
+  // Open Google Maps route with current device position as origin to the task's pickup location
+  function openTaskRoute(destination: string) {
+    const buildWebUrl = (origin?: string) => {
+      return (
+        `https://www.google.com/maps/dir/?api=1` +
+        (origin ? `&origin=${encodeURIComponent(origin)}` : "") +
+        `&destination=${encodeURIComponent(destination)}` +
+        `&travelmode=driving`
+      );
+    };
+
+    if (navigator.geolocation) {
+      navigator.geolocation.getCurrentPosition(
+        (pos) => {
+          const origin = `${pos.coords.latitude},${pos.coords.longitude}`;
+          window.open(buildWebUrl(origin), "_blank");
+        },
+        () => {
+          toast({
+            title: "Location access denied",
+            description: "Opening route without a fixed start point.",
+          });
+          window.open(buildWebUrl(undefined), "_blank");
+        },
+        { enableHighAccuracy: true, timeout: 8000, maximumAge: 0 }
+      );
+    } else {
+      window.open(buildWebUrl(undefined), "_blank");
+    }
+  }
+
   return (
     <div className="space-y-6 max-w-3xl mx-auto">
       {/* New */}
@@ -162,11 +193,22 @@ export function TasksBoard() {
                       </div>
                     )}
                     {task.pickup_location && (
-                      <div className="flex items-start gap-2">
-                        <MapPin className="h-4 w-4 mt-0.5 text-muted-foreground" />
-                        <span>
-                          <span className="font-medium">Pickup:</span> {task.pickup_location}
-                        </span>
+                      <div className="flex items-start gap-2 justify-between">
+                        <div className="flex items-start gap-2">
+                          <MapPin className="h-4 w-4 mt-0.5 text-muted-foreground" />
+                          <span>
+                            <span className="font-medium">Pickup:</span> {task.pickup_location}
+                          </span>
+                        </div>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => openTaskRoute(task.pickup_location!)}
+                          className="shrink-0"
+                        >
+                          <Navigation className="mr-2 h-4 w-4" />
+                          Map
+                        </Button>
                       </div>
                     )}
                     {task.dropoff_location && (
@@ -238,11 +280,22 @@ export function TasksBoard() {
                       </div>
                     )}
                     {task.pickup_location && (
-                      <div className="flex items-start gap-2">
-                        <MapPin className="h-4 w-4 mt-0.5 text-muted-foreground" />
-                        <span>
-                          <span className="font-medium">Pickup:</span> {task.pickup_location}
-                        </span>
+                      <div className="flex items-start gap-2 justify-between">
+                        <div className="flex items-start gap-2">
+                          <MapPin className="h-4 w-4 mt-0.5 text-muted-foreground" />
+                          <span>
+                            <span className="font-medium">Pickup:</span> {task.pickup_location}
+                          </span>
+                        </div>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => openTaskRoute(task.pickup_location!)}
+                          className="shrink-0"
+                        >
+                          <Navigation className="mr-2 h-4 w-4" />
+                          Map
+                        </Button>
                       </div>
                     )}
                     {task.dropoff_location && (
@@ -322,11 +375,22 @@ export function TasksBoard() {
                       </div>
                     )}
                     {task.pickup_location && (
-                      <div className="flex items-start gap-2">
-                        <MapPin className="h-4 w-4 mt-0.5 text-muted-foreground" />
-                        <span>
-                          <span className="font-medium">Pickup:</span> {task.pickup_location}
-                        </span>
+                      <div className="flex items-start gap-2 justify-between">
+                        <div className="flex items-start gap-2">
+                          <MapPin className="h-4 w-4 mt-0.5 text-muted-foreground" />
+                          <span>
+                            <span className="font-medium">Pickup:</span> {task.pickup_location}
+                          </span>
+                        </div>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => openTaskRoute(task.pickup_location!)}
+                          className="shrink-0"
+                        >
+                          <Navigation className="mr-2 h-4 w-4" />
+                          Map
+                        </Button>
                       </div>
                     )}
                     {task.dropoff_location && (
