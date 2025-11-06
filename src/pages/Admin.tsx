@@ -88,8 +88,8 @@ export default function Admin() {
 
   async function createOrUpdateTask() {
     const { passenger_name, pickup_location, dropoff_location, task_name, notes, deadline } = taskForm;
-    if (!task_name || !pickup_location || !deadline) {
-      toast({ title: "Please fill Task Name, Pickup Location, and Deadline", variant: "destructive" });
+    if (!task_name) {
+      toast({ title: "Please fill Task Name", variant: "destructive" });
       return;
     }
 
@@ -102,7 +102,7 @@ export default function Admin() {
           dropoff_location: dropoff_location || "TBD",
           task_name,
           notes,
-          eta: deadline
+          eta: deadline || null
         })
         .eq("id", editingTask.id);
 
@@ -116,11 +116,11 @@ export default function Admin() {
         .from("tasks")
         .insert([{ 
           passenger_name: passenger_name || "Unknown",
-          pickup_location,
+          pickup_location: pickup_location || "",
           dropoff_location: dropoff_location || "TBD",
           task_name,
           notes,
-          eta: deadline,
+          eta: deadline || null,
           status: "available"
         }]);
 
@@ -654,7 +654,7 @@ export default function Admin() {
               />
             </div>
             <div>
-              <Label>Pickup Location *</Label>
+              <Label>Pickup Location</Label>
               <Input
                 value={taskForm.pickup_location}
                 onChange={(e) => setTaskForm({ ...taskForm, pickup_location: e.target.value })}
@@ -662,7 +662,7 @@ export default function Admin() {
               />
             </div>
             <div>
-              <Label>Deadline *</Label>
+              <Label>Deadline</Label>
               <Input
                 type="datetime-local"
                 value={taskForm.deadline}
