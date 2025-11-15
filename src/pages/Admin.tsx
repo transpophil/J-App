@@ -27,11 +27,9 @@ export default function Admin() {
   const [showTaskDialog, setShowTaskDialog] = useState(false);
   const [showDriverDialog, setShowDriverDialog] = useState(false);
   const [showPassengerDialog, setShowPassengerDialog] = useState(false);
-  const [showCrewDialog, setShowCrewDialog] = useState(false);
   const [editingTask, setEditingTask] = useState<any>(null);
   const [editingDriver, setEditingDriver] = useState<any>(null);
   const [editingPassenger, setEditingPassenger] = useState<any>(null);
-  const [editingCrew, setEditingCrew] = useState<any>(null);
   const [taskForm, setTaskForm] = useState({
     passenger_name: "",
     pickup_location: "",
@@ -50,8 +48,6 @@ export default function Admin() {
     name: "",
     default_pickup_location: "",
   });
-  const [crewForm, setCrewForm] = useState({ name: "", role: "", phone: "" });
-  const [crewMembers, setCrewMembers] = useState<any[]>([]);
 
   useEffect(() => {
     if (isAuthenticated) {
@@ -105,11 +101,6 @@ export default function Admin() {
     setPassengers(orderedPassengers);
     setTemplates(templatesRes.data || []);
 
-    const { data: crewData } = await supabase
-      .from("crew_members")
-      .select("*")
-      .order("name");
-    setCrewMembers(crewData || []);
   }
 
   async function createOrUpdateTask() {
@@ -267,48 +258,6 @@ export default function Admin() {
       return;
     }
     toast({ title: "Passenger deleted" });
-    loadData();
-  }
-
-  async function createOrUpdateCrew() {
-    const { name, role, phone } = crewForm;
-    if (!name || !phone) {
-      toast({ title: "Name and phone are required", variant: "destructive" });
-      return;
-    }
-    if (editingCrew) {
-      const { error } = await supabase
-        .from("crew_members")
-        .update({ name, role: role || null, phone, updated_at: new Date().toISOString() })
-        .eq("id", editingCrew.id);
-      if (error) {
-        toast({ title: "Failed to update crew member", description: error.message, variant: "destructive" });
-        return;
-      }
-      toast({ title: "Crew member updated" });
-    } else {
-      const { error } = await supabase
-        .from("crew_members")
-        .insert([{ name, role: role || null, phone }]);
-      if (error) {
-        toast({ title: "Failed to add crew member", description: error.message, variant: "destructive" });
-        return;
-      }
-      toast({ title: "Crew member added" });
-    }
-    setShowCrewDialog(false);
-    setEditingCrew(null);
-    setCrewForm({ name: "", role: "", phone: "" });
-    loadData();
-  }
-
-  async function deleteCrew(id: string) {
-    const { error } = await supabase.from("crew_members").delete().eq("id", id);
-    if (error) {
-      toast({ title: "Failed to delete crew member", description: error.message, variant: "destructive" });
-      return;
-    }
-    toast({ title: "Crew member deleted" });
     loadData();
   }
 
@@ -499,13 +448,12 @@ export default function Admin() {
 
       <div className="container mx-auto px-4 py-8 max-w-5xl">
         <Tabs defaultValue="tasks" className="space-y-6">
-          <TabsList className="grid w-full grid-cols-6 gap-1">
+          <TabsList className="grid w-full grid-cols-5 gap-1">
             <TabsTrigger value="tasks" className="text-xs sm:text-sm">Tasks</TabsTrigger>
             <TabsTrigger value="drivers" className="text-xs sm:text-sm">Drivers</TabsTrigger>
             <TabsTrigger value="passengers" className="text-xs sm:text-sm">Passengers</TabsTrigger>
             <TabsTrigger value="templates" className="text-xs sm:text-sm">Templates</TabsTrigger>
             <TabsTrigger value="settings" className="text-xs sm:text-sm">Settings</TabsTrigger>
-            <TabsTrigger value="crew" className="text-xs sm:text-sm">Crew</TabsTrigger>
           </TabsList>
 
           <TabsContent value="tasks" className="space-y-6">
@@ -822,64 +770,6 @@ export default function Admin() {
               <Button onClick={updateSettings}>Save Settings</Button>
             </Card>
           </TabsContent>
-
-          <TabsContent value="crew" className="space-y-4">
-            <div className="flex justify-between items-center">
-              <h2 className="text-2xl font-bold">Crew List</h2>
-              <Button
-                onClick={() => {
-                  setEditingCrew(null);
-                  setCrewForm({ name: "", role: "", phone: "" });
-                  setShowCrewDialog(true);
-                }}
-              >
-                <Plus className="mr-2 h-4 w-4" />
-                Add Crew Member
-              </Button>
-            </div>
-            <div className="space-y-3">
-              {crewMembers.map((member) => (
-                <Card key={member.id} className="p-4">
-                  <div className="flex justify-between items-start">
-                    <div className="flex-1">
-                      <h3 className="font-semibold text-lg">{member.name}</h3>
-                      {member.role && (
-                        <p className="text-sm text-muted-foreground mt-1">
-                          <span className="font-medium">Role:</span> {member.role}
-                        </p>
-                      )}
-                      <p className="text-sm text-muted-foreground mt-1">
-                        <span className="font-medium">Phone:</span> {member.phone}
-                      </p>
-                    </div>
-                    <div className="flex gap-2">
-                      <Button
-                        size="icon"
-                        variant="outline"
-                        onClick={() => {
-                          setEditingCrew(member);
-                          setCrewForm({
-                            name: member.name,
-                            role: member.role || "",
-                            phone: member.phone,
-                          });
-                          setShowCrewDialog(true);
-                        }}
-                      >
-                        <Edit className="h-4 w-4" />
-                      </Button>
-                      <Button size="icon" variant="destructive" onClick={() => deleteCrew(member.id)}>
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
-                    </div>
-                  </div>
-                </Card>
-              ))}
-              {crewMembers.length === 0 && (
-                <Card className="p-6 text-center text-muted-foreground">No crew members yet</Card>
-              )}
-            </div>
-          </TabsContent>
         </Tabs>
       </div>
 
@@ -1016,43 +906,6 @@ export default function Admin() {
             </div>
             <Button onClick={createOrUpdatePassenger} className="w-full">
               {editingPassenger ? "Update Passenger" : "Add Passenger"}
-            </Button>
-          </div>
-        </DialogContent>
-      </Dialog>
-
-      <Dialog open={showCrewDialog} onOpenChange={setShowCrewDialog}>
-        <DialogContent className="max-w-lg">
-          <DialogHeader>
-            <DialogTitle>{editingCrew ? "Edit Crew Member" : "Add Crew Member"}</DialogTitle>
-          </DialogHeader>
-          <div className="space-y-4">
-            <div>
-              <Label>Name *</Label>
-              <Input
-                value={crewForm.name}
-                onChange={(e) => setCrewForm({ ...crewForm, name: e.target.value })}
-                placeholder="Enter name"
-              />
-            </div>
-            <div>
-              <Label>Role</Label>
-              <Input
-                value={crewForm.role}
-                onChange={(e) => setCrewForm({ ...crewForm, role: e.target.value })}
-                placeholder="Enter role (optional)"
-              />
-            </div>
-            <div>
-              <Label>Phone *</Label>
-              <Input
-                value={crewForm.phone}
-                onChange={(e) => setCrewForm({ ...crewForm, phone: e.target.value })}
-                placeholder="+49 170 1234567"
-              />
-            </div>
-            <Button onClick={createOrUpdateCrew} className="w-full">
-              {editingCrew ? "Update Crew Member" : "Add Crew Member"}
             </Button>
           </div>
         </DialogContent>
