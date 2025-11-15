@@ -53,6 +53,17 @@ export default function Admin() {
   const [crewForm, setCrewForm] = useState({ name: "", role: "", phone: "" });
   const { crewMembers, addCrewMember, updateCrewMember, deleteCrewMember } = useCrew();
 
+  function sortPassengersByName(list: any[]) {
+    return [...(list || [])].sort((a, b) => {
+      const aName = (a.name || "").trim();
+      const bName = (b.name || "").trim();
+      const aStartsNum = /^\d/.test(aName);
+      const bStartsNum = /^\d/.test(bName);
+      if (aStartsNum !== bStartsNum) return aStartsNum ? -1 : 1;
+      return aName.localeCompare(bName, undefined, { sensitivity: "base", numeric: true });
+    });
+  }
+
   useEffect(() => {
     if (isAuthenticated) {
       loadData();
@@ -80,7 +91,7 @@ export default function Admin() {
     ]);
 
     setDrivers(driversRes.data || []);
-    setPassengers(passengersRes.data || []);
+    setPassengers(sortPassengersByName(passengersRes.data || []));
     setTasks(tasksRes.data || []);
     setTemplates(templatesRes.data || []);
 
@@ -665,11 +676,14 @@ export default function Admin() {
               </Button>
             </div>
             <div className="space-y-3">
-              {passengers.map((passenger) => (
+              {passengers.map((passenger, index) => (
                 <Card key={passenger.id} className="p-4">
                   <div className="flex justify-between items-start">
                     <div className="flex-1">
-                      <h3 className="font-semibold text-lg">{passenger.name}</h3>
+                      <div className="flex items-center gap-2">
+                        <Badge variant="outline">{index + 1}</Badge>
+                        <h3 className="font-semibold text-lg">{passenger.name}</h3>
+                      </div>
                       <p className="text-sm text-muted-foreground mt-1">
                         <span className="font-medium">Default Pickup:</span> {passenger.default_pickup_location}
                       </p>
