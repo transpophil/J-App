@@ -10,7 +10,7 @@ import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
 import { sendTelegramTemplate } from "@/utils/telegram";
-import { LogOut, MapPin, Clock, CheckCircle2, AlertCircle, Navigation } from "lucide-react";
+import { LogOut, MapPin, Clock, CheckCircle2, AlertCircle, Navigation, Phone } from "lucide-react";
 import { TimeWheel } from "@/components/TimeWheel";
 import { TaskSection } from "@/components/TaskSection";
 import TasksBoard from "@/components/TasksBoard";
@@ -31,6 +31,7 @@ export default function Dashboard() {
   const [showEtaDialog, setShowEtaDialog] = useState(false);
   const [tripMode, setTripMode] = useState<"pickup" | "travel">("pickup");
   const [hasNewTasks, setHasNewTasks] = useState(false);
+  const [crewMembers, setCrewMembers] = useState<any[]>([]);
 
   useEffect(() => {
     if (!currentDriver) {
@@ -91,6 +92,13 @@ export default function Dashboard() {
       .select("*")
       .order("name");
     setPassengers(passengersData || []);
+    
+    // Load crew members
+    const { data: crewData } = await supabase
+      .from("crew_members")
+      .select("*")
+      .order("name");
+    setCrewMembers(crewData || []);
 
     // Load current passenger trip task for this driver (passenger trips only - no task_name)
     const { data: current } = await supabase
@@ -467,6 +475,7 @@ export default function Dashboard() {
                 <span className="absolute -top-1 -right-1 h-2 w-2 rounded-full bg-destructive ring-2 ring-background" />
               )}
             </TabsTrigger>
+            <TabsTrigger value="crew" className="px-6 py-3 text-lg font-bold">Crew List</TabsTrigger>
           </TabsList>
 
           <TabsContent value="tasks" className="mt-6">
@@ -698,6 +707,47 @@ export default function Dashboard() {
                 </Card>
               )}
             </div>
+          </TabsContent>
+
+          <TabsContent value="crew" className="mt-6">
+            <Card className="p-6 shadow-elevated bg-card/80 backdrop-blur-md border-border/50">
+              <div className="space-y-4">
+                <div className="text-center">
+                  <Badge className="mb-2">Crew</Badge>
+                  <h2 className="text-2xl font-bold text-foreground mb-2">Crew List</h2>
+                  <p className="text-muted-foreground">Tap a phone number to call</p>
+                </div>
+                <div className="space-y-3">
+                  {crewMembers.map((member) => (
+                    <div key={member.id} className="p-4 border rounded-lg flex items-center justify-between">
+                      <div>
+                        <p className="font-semibold text-foreground">{member.name}</p>
+                        {member.role && (
+                          <p className="text-sm text-muted-foreground">{member.role}</p>
+                        )}
+                      </div>
+                      <div className="flex items-center gap-3">
+                        <a
+                          href={`tel:${member.phone}`}
+                          className="text-primary hover:underline text-sm sm:text-base"
+                        >
+                          {member.phone}
+                        </a>
+                        <Button asChild variant="outline">
+                          <a href={`tel:${member.phone}`} aria-label={`Call ${member.name}`}>
+                            <Phone className="mr-2 h-5 w-5" />
+                            Call
+                          </a>
+                        </Button>
+                      </div>
+                    </div>
+                  ))}
+                  {crewMembers.length === 0 && (
+                    <Card className="p-6 text-center text-muted-foreground">No crew members available</Card>
+                  )}
+                </div>
+              </div>
+            </Card>
           </TabsContent>
         </Tabs>
 
