@@ -91,6 +91,21 @@ export default function Admin() {
       supabase.from("destinations").select("*").order("name"),
     ]);
 
+    if (driversRes.error) console.error("Drivers load error:", driversRes.error);
+    if (passengersRes.error) console.error("Passengers load error:", passengersRes.error);
+    if (tasksRes.error) console.error("Tasks load error:", tasksRes.error);
+    if (templatesRes.error) console.error("Templates load error:", templatesRes.error);
+    if (settingsRes.error) console.error("Settings load error:", settingsRes.error);
+
+    if (destinationsRes.error) {
+      console.error("Destinations load error:", destinationsRes.error);
+      toast({ 
+        title: "Destinations unavailable", 
+        description: destinationsRes.error.message, 
+        variant: "destructive" 
+      });
+    }
+
     setDrivers(driversRes.data || []);
     // Build settings map and apply passenger order if present
     const settingsMap: any = {};
