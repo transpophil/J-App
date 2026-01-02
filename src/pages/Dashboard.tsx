@@ -5,6 +5,8 @@ import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
+import { Input } from "@/components/ui/input";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -31,6 +33,9 @@ export default function Dashboard() {
   const [showEtaDialog, setShowEtaDialog] = useState(false);
   const [tripMode, setTripMode] = useState<"pickup" | "travel">("pickup");
   const [hasNewTasks, setHasNewTasks] = useState(false);
+  const [meetingLocation, setMeetingLocation] = useState<string>("");
+  const [saveMeetingLocation, setSaveMeetingLocation] = useState<boolean>(false);
+  const [savedLocations, setSavedLocations] = useState<any[]>([]);
 
   // Subscribe to realtime updates for tasks
   useEffect(() => {
@@ -46,6 +51,9 @@ export default function Dashboard() {
       .on("postgres_changes", { event: "*", schema: "public", table: "tasks" }, () => {
         loadData();
         loadNewTasks();
+      })
+      .on("postgres_changes", { event: "*", schema: "public", table: "locations" }, () => {
+        loadData();
       })
       .subscribe();
 
@@ -112,6 +120,14 @@ export default function Dashboard() {
       }
     }
     setPassengers(orderedPassengers);
+
+    // Load saved locations for this driver
+    const { data: locationsData } = await supabase
+      .from("locations")
+      .select("*")
+      .eq("driver_id", currentDriver.id)
+      .order("updated_at", { ascending: false });
+    setSavedLocations(locationsData || []);
 
     // Load current passenger trip task for this driver (passenger trips only - no task_name)
     const { data: current } = await supabase
@@ -183,9 +199,12 @@ export default function Dashboard() {
     const finalPassengerNames = currentTask 
       ? `${currentTask.passenger_name} & ${passengerNames}`
       : passengerNames;
-    const finalPickupLocations = currentTask
+    let finalPickupLocations = currentTask 
       ? `${currentTask.pickup_location}, ${pickupLocations}`
       : pickupLocations;
+    if (meetingLocation.trim()) {
+      finalPickupLocations = `${meetingLocation.trim()}, ${finalPickupLocations}`;
+    }
 
     // Create or update task
     const taskData = {
@@ -239,6 +258,17 @@ export default function Dashboard() {
       taskId = data.id;
     }
 
+    // Optionally save meeting location for future reuse
+    if (saveMeetingLocation && meetingLocation.trim()) {
+      await supabase
+        .from("locations")
+        .insert([{
+          driver_id: currentDriver.id,
+          address: meetingLocation.trim(),
+          name: "Meeting location",
+        }]);
+    }
+
     // Send Telegram message using template
     await sendTelegramTemplate("lets_go", {
       driver: currentDriver.name,
@@ -249,6 +279,8 @@ export default function Dashboard() {
     toast({ title: "Trip started! Message sent to group." });
     setShowEtaDialog(false);
     setTripMode("travel");
+    setMeetingLocation("");
+    setSaveMeetingLocation(false);
     loadData();
   }
 
@@ -546,6 +578,43 @@ export default function Dashboard() {
                             </div>
                           </div>
                         ))}
+                      </div>
+                      <div className="space-y-2 pt-2">
+                        <Label>Meeting Location (optional)</Label>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                          <Select
+                            onValueChange={(id) => {
+                              const loc = savedLocations.find((l: any) => l.id === id);
+                              setMeetingLocation(loc?.address || "");
+                            }}
+                          >
+                            <SelectTrigger>
+                              <SelectValue placeholder="Choose saved location" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {savedLocations.map((loc: any) => (
+                                <SelectItem key={loc.id} value={loc.id}>
+                                  {loc.name || loc.address}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                          <Input
+                            value={meetingLocation}
+                            onChange={(e) => setMeetingLocation(e.target.value)}
+                            placeholder="Enter meeting address"
+                          />
+                        </div>
+                        <div className="flex items-center space-x-2">
+                          <Checkbox
+                            id="saveMeetingLocation"
+                            checked={saveMeetingLocation}
+                            onCheckedChange={(v) => setSaveMeetingLocation(Boolean(v))}
+                          />
+                          <Label htmlFor="saveMeetingLocation" className="text-sm text-muted-foreground">
+                            Save this location for future
+                          </Label>
+                        </div>
                       </div>
                     </div>
 
