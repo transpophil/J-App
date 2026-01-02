@@ -292,45 +292,29 @@ export default function Dashboard() {
       const addr = meetingLocation.trim();
       const nextList = [addr, ...currentList.filter((a) => a !== addr)];
 
-      // Try RPC upsert first
-      const { error: rpcError } = await (supabase as any).rpc("upsert_app_setting", {
-        p_key: "daily_destinations",
-        p_value: JSON.stringify(nextList),
-      });
+      // Update existing row only; do not insert to avoid RLS issues
+      const { data: existing } = await supabase
+        .from("app_settings")
+        .select("setting_key")
+        .eq("setting_key", "daily_destinations")
+        .maybeSingle();
 
-      if (rpcError) {
-        // Fallback: update existing row to avoid RLS insert
-        const { data: existing } = await supabase
+      if (existing) {
+        const { error: updateError } = await supabase
           .from("app_settings")
-          .select("setting_key")
-          .eq("setting_key", "daily_destinations")
-          .maybeSingle();
+          .update({ setting_value: JSON.stringify(nextList) })
+          .eq("setting_key", "daily_destinations");
 
-        if (existing) {
-          const { error: updateError } = await supabase
-            .from("app_settings")
-            .update({ setting_value: JSON.stringify(nextList) })
-            .eq("setting_key", "daily_destinations");
-
-          if (updateError) {
-            console.error("Failed to save destination (update):", updateError);
-            toast({ title: "Failed to save destination", description: updateError.message, variant: "destructive" });
-          }
-        } else {
-          // Last resort: attempt insert (may be blocked by RLS)
-          const { error: insertError } = await supabase
-            .from("app_settings")
-            .insert([{ setting_key: "daily_destinations", setting_value: JSON.stringify(nextList) }]);
-
-          if (insertError) {
-            console.error("Failed to save destination (insert):", insertError);
-            toast({
-              title: "Failed to save destination",
-              description: "RPC missing and insert blocked by RLS. Please seed the 'daily_destinations' setting first.",
-              variant: "destructive",
-            });
-          }
+        if (updateError) {
+          console.error("Failed to save destination (update):", updateError);
+          toast({ title: "Failed to save destination", description: updateError.message, variant: "destructive" });
         }
+      } else {
+        toast({
+          title: "Failed to save destination",
+          description: "Missing 'daily_destinations' setting. Please seed defaults first.",
+          variant: "destructive",
+        });
       }
     }
 
