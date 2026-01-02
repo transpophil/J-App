@@ -52,7 +52,7 @@ export default function Dashboard() {
         loadData();
         loadNewTasks();
       })
-      .on("postgres_changes", { event: "*", schema: "public", table: "locations" }, () => {
+      .on("postgres_changes", { event: "*", schema: "public", table: "app_settings" }, () => {
         loadData();
       })
       .subscribe();
@@ -121,13 +121,26 @@ export default function Dashboard() {
     }
     setPassengers(orderedPassengers);
 
-    // Load saved locations for this driver
-    const { data: locationsData } = await supabase
-      .from("locations")
-      .select("*")
-      .eq("driver_id", currentDriver.id)
-      .order("updated_at", { ascending: false });
-    setSavedLocations(locationsData || []);
+    // Load global daily destinations from app_settings
+    const { data: dailyDestSetting } = await supabase
+      .from("app_settings")
+      .select("setting_value")
+      .eq("setting_key", "daily_destinations")
+      .maybeSingle();
+    let destinationsList: { id: string; address: string }[] = [];
+    if (dailyDestSetting?.setting_value) {
+      try {
+        const arr = JSON.parse(dailyDestSetting.setting_value);
+        if (Array.isArray(arr)) {
+          destinationsList = arr
+            .filter((a) => typeof a === "string" && a.trim().length > 0)
+            .map((address: string, idx: number) => ({ id: String(idx), address }));
+        }
+      } catch {
+        // ignore parse errors
+      }
+    }
+    setSavedLocations(destinationsList);
 
     // Load current passenger trip task for this driver (passenger trips only - no task_name)
     const { data: current } = await supabase
@@ -258,15 +271,35 @@ export default function Dashboard() {
       taskId = data.id;
     }
 
-    // Optionally save meeting location for future reuse
+    // Optionally save destination into the daily list
     if (saveMeetingLocation && meetingLocation.trim()) {
-      await supabase
-        .from("locations")
-        .insert([{
-          driver_id: currentDriver.id,
-          address: meetingLocation.trim(),
-          name: "Destination",
-        }]);
+      const { data: existing } = await supabase
+        .from("app_settings")
+        .select("*")
+        .eq("setting_key", "daily_destinations")
+        .maybeSingle();
+      let currentList: string[] = [];
+      if (existing?.setting_value) {
+        try {
+          const parsed = JSON.parse(existing.setting_value);
+          if (Array.isArray(parsed)) currentList = parsed;
+        } catch {
+          currentList = [];
+        }
+      }
+      const addr = meetingLocation.trim();
+      // Prepend and dedupe simple by string match
+      const nextList = [addr, ...currentList.filter((a) => a !== addr)];
+      if (existing) {
+        await supabase
+          .from("app_settings")
+          .update({ setting_value: JSON.stringify(nextList) })
+          .eq("setting_key", "daily_destinations");
+      } else {
+        await supabase
+          .from("app_settings")
+          .insert([{ setting_key: "daily_destinations", setting_value: JSON.stringify(nextList) }]);
+      }
     }
 
     // Send Telegram message using template

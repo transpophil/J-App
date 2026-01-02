@@ -13,7 +13,6 @@ import { useToast } from "@/hooks/use-toast";
 import { ArrowLeft, Plus, Trash2, Edit } from "lucide-react";
 import logo from "@/assets/j-app-logo.jpg";
 import PassengerSortable from "@/components/PassengerSortable";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 export default function Admin() {
   const navigate = useNavigate();
@@ -32,7 +31,8 @@ export default function Admin() {
   const [editingTask, setEditingTask] = useState<any>(null);
   const [editingDriver, setEditingDriver] = useState<any>(null);
   const [editingPassenger, setEditingPassenger] = useState<any>(null);
-  const [editingDestination, setEditingDestination] = useState<any>(null);
+  const [editingDestinationIndex, setEditingDestinationIndex] = useState<number | null>(null);
+  const [destinationInput, setDestinationInput] = useState("");
   const [taskForm, setTaskForm] = useState({
     passenger_name: "",
     pickup_location: "",
@@ -51,12 +51,7 @@ export default function Admin() {
     name: "",
     default_pickup_location: "",
   });
-  const [destinations, setDestinations] = useState<any[]>([]);
-  const [destinationForm, setDestinationForm] = useState({
-    driver_id: "",
-    name: "",
-    address: "",
-  });
+  const [dailyDestinations, setDailyDestinations] = useState<string[]>([]);
 
   useEffect(() => {
     if (isAuthenticated) {
@@ -110,12 +105,14 @@ export default function Admin() {
     setPassengers(orderedPassengers);
     setTemplates(templatesRes.data || []);
     
-    // Load destinations (locations)
-    const { data: destinationsRes } = await supabase
-      .from("locations")
-      .select("*")
-      .order("updated_at", { ascending: false });
-    setDestinations(destinationsRes || []);
+    // Load global daily destinations from app_settings
+    const orderStr = settingsMap["daily_destinations"];
+    try {
+      const parsed: unknown = orderStr ? JSON.parse(orderStr) : [];
+      setDailyDestinations(Array.isArray(parsed) ? (parsed as string[]) : []);
+    } catch {
+      setDailyDestinations([]);
+    }
   }
 
   async function createOrUpdateTask() {
@@ -411,50 +408,61 @@ export default function Admin() {
     toast({ title: "Passenger order saved" });
   }
 
-  async function createOrUpdateDestination() {
-    const { driver_id, name, address } = destinationForm;
-    if (!driver_id || !address.trim()) {
-      toast({ title: "Driver and address are required", variant: "destructive" });
-      return;
-    }
-
-    if (editingDestination) {
+  async function persistDailyDestinations(next: string[]) {
+    const value = JSON.stringify(next);
+    const { data: existing } = await supabase
+      .from("app_settings")
+      .select("*")
+      .eq("setting_key", "daily_destinations")
+      .maybeSingle();
+    if (existing) {
       const { error } = await supabase
-        .from("locations")
-        .update({ driver_id, name: name || null, address: address.trim() })
-        .eq("id", editingDestination.id);
-
+        .from("app_settings")
+        .update({ setting_value: value })
+        .eq("setting_key", "daily_destinations");
       if (error) {
-        toast({ title: "Failed to update destination", variant: "destructive" });
-        return;
+        toast({ title: "Failed to save destinations", description: error.message, variant: "destructive" });
+        return false;
       }
-      toast({ title: "Destination updated" });
     } else {
       const { error } = await supabase
-        .from("locations")
-        .insert([{ driver_id, name: name || null, address: address.trim() }]);
-
+        .from("app_settings")
+        .insert([{ setting_key: "daily_destinations", setting_value: value }]);
       if (error) {
-        toast({ title: "Failed to create destination", variant: "destructive" });
-        return;
+        toast({ title: "Failed to create destinations list", description: error.message, variant: "destructive" });
+        return false;
       }
-      toast({ title: "Destination created" });
     }
-
-    setShowDestinationDialog(false);
-    setEditingDestination(null);
-    setDestinationForm({ driver_id: "", name: "", address: "" });
-    loadData();
+    return true;
   }
 
-  async function deleteDestination(id: string) {
-    const { error } = await supabase.from("locations").delete().eq("id", id);
-    if (error) {
-      toast({ title: "Failed to delete destination", variant: "destructive" });
+  async function createOrUpdateDestination() {
+    const addr = destinationInput.trim();
+    if (!addr) {
+      toast({ title: "Destination address is required", variant: "destructive" });
       return;
     }
+    const next = [...dailyDestinations];
+    if (editingDestinationIndex !== null) {
+      next[editingDestinationIndex] = addr;
+    } else {
+      next.unshift(addr);
+    }
+    const ok = await persistDailyDestinations(next);
+    if (!ok) return;
+    setDailyDestinations(next);
+    toast({ title: editingDestinationIndex !== null ? "Destination updated" : "Destination added" });
+    setShowDestinationDialog(false);
+    setEditingDestinationIndex(null);
+    setDestinationInput("");
+  }
+
+  async function deleteDestination(index: number) {
+    const next = dailyDestinations.filter((_, i) => i !== index);
+    const ok = await persistDailyDestinations(next);
+    if (!ok) return;
+    setDailyDestinations(next);
     toast({ title: "Destination deleted" });
-    loadData();
   }
 
   if (!isAuthenticated) {
@@ -835,11 +843,11 @@ export default function Admin() {
 
           <TabsContent value="destinations" className="space-y-4">
             <div className="flex justify-between items-center">
-              <h2 className="text-2xl font-bold">Manage Destinations</h2>
+              <h2 className="text-2xl font-bold">Manage Daily Destinations</h2>
               <Button
                 onClick={() => {
-                  setEditingDestination(null);
-                  setDestinationForm({ driver_id: "", name: "", address: "" });
+                  setEditingDestinationIndex(null);
+                  setDestinationInput("");
                   setShowDestinationDialog(true);
                 }}
               >
@@ -847,19 +855,19 @@ export default function Admin() {
                 Add Destination
               </Button>
             </div>
-            <div className="space-y-3">
-              {destinations.map((loc) => {
-                const driver = drivers.find(d => d.id === loc.driver_id);
-                return (
-                  <Card key={loc.id} className="p-4">
+            {dailyDestinations.length === 0 ? (
+              <Card className="p-6 text-center text-muted-foreground">
+                No destinations added for today
+              </Card>
+            ) : (
+              <div className="space-y-3">
+                {dailyDestinations.map((addr, i) => (
+                  <Card key={`${addr}-${i}`} className="p-4">
                     <div className="flex justify-between items-start">
                       <div className="space-y-1">
-                        <h3 className="font-semibold text-lg">{loc.name || "Destination"}</h3>
+                        <h3 className="font-semibold text-lg">Destination</h3>
                         <p className="text-sm text-muted-foreground">
-                          <span className="font-medium">Address:</span> {loc.address}
-                        </p>
-                        <p className="text-sm text-muted-foreground">
-                          <span className="font-medium">Driver:</span> {driver?.name || "Unknown"}
+                          <span className="font-medium">Address:</span> {addr}
                         </p>
                       </div>
                       <div className="flex gap-2">
@@ -867,26 +875,22 @@ export default function Admin() {
                           size="icon"
                           variant="outline"
                           onClick={() => {
-                            setEditingDestination(loc);
-                            setDestinationForm({
-                              driver_id: loc.driver_id || "",
-                              name: loc.name || "",
-                              address: loc.address || "",
-                            });
+                            setEditingDestinationIndex(i);
+                            setDestinationInput(addr);
                             setShowDestinationDialog(true);
                           }}
                         >
                           <Edit className="h-4 w-4" />
                         </Button>
-                        <Button size="icon" variant="destructive" onClick={() => deleteDestination(loc.id)}>
+                        <Button size="icon" variant="destructive" onClick={() => deleteDestination(i)}>
                           <Trash2 className="h-4 w-4" />
                         </Button>
                       </div>
                     </div>
                   </Card>
-                );
-              })}
-            </div>
+                ))}
+              </div>
+            )}
           </TabsContent>
         </Tabs>
       </div>
@@ -1032,45 +1036,19 @@ export default function Admin() {
       <Dialog open={showDestinationDialog} onOpenChange={setShowDestinationDialog}>
         <DialogContent className="max-w-lg">
           <DialogHeader>
-            <DialogTitle>{editingDestination ? "Edit Destination" : "Add New Destination"}</DialogTitle>
+            <DialogTitle>{editingDestinationIndex !== null ? "Edit Destination" : "Add New Destination"}</DialogTitle>
           </DialogHeader>
           <div className="space-y-4">
             <div>
-              <Label>Driver *</Label>
-              <Select
-                value={destinationForm.driver_id}
-                onValueChange={(v) => setDestinationForm({ ...destinationForm, driver_id: v })}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Choose driver" />
-                </SelectTrigger>
-                <SelectContent>
-                  {drivers.map((d) => (
-                    <SelectItem key={d.id} value={d.id}>
-                      {d.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div>
-              <Label>Name</Label>
-              <Input
-                value={destinationForm.name}
-                onChange={(e) => setDestinationForm({ ...destinationForm, name: e.target.value })}
-                placeholder="Optional name, e.g., Home"
-              />
-            </div>
-            <div>
               <Label>Address *</Label>
               <Input
-                value={destinationForm.address}
-                onChange={(e) => setDestinationForm({ ...destinationForm, address: e.target.value })}
+                value={destinationInput}
+                onChange={(e) => setDestinationInput(e.target.value)}
                 placeholder="Enter destination address"
               />
             </div>
             <Button onClick={createOrUpdateDestination} className="w-full">
-              {editingDestination ? "Update Destination" : "Add Destination"}
+              {editingDestinationIndex !== null ? "Update Destination" : "Add Destination"}
             </Button>
           </div>
         </DialogContent>
