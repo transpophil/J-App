@@ -189,7 +189,7 @@ export type Database = {
           created_at: string
           email: string | null
           phone: string | null
-          pin_password: string
+          pin_password: string | null
           id: string
           name: string
           updated_at: string
