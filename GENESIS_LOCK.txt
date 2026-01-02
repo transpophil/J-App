@@ -1,0 +1,3 @@
+J-App Genesis Lock v1
+Commit safety marker: DO NOT MODIFY OR DELETE.
+Date: 2026-01-02

@@ -22,6 +22,26 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Verify Genesis Lock
+        shell: bash
+        run: |
+          if [ ! -f GENESIS_LOCK.txt ]; then
+            echo "::error::GENESIS_LOCK.txt missing. Build aborted."
+            exit 1
+          fi
+          expected=$(cat << 'EOF'
+          J-App Genesis Lock v1
+          Commit safety marker: DO NOT MODIFY OR DELETE.
+          Date: 2026-01-02
+          EOF
+          )
+          actual=$(cat GENESIS_LOCK.txt)
+          if [ "$actual" != "$expected" ]; then
+            echo "::error::Genesis lock file has been modified or is incorrect. Build aborted."
+            exit 1
+          fi
+          echo "Genesis lock verified."
+
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
