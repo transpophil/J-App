@@ -27,9 +27,17 @@ export default function Admin() {
   const [showTaskDialog, setShowTaskDialog] = useState(false);
   const [showDriverDialog, setShowDriverDialog] = useState(false);
   const [showPassengerDialog, setShowPassengerDialog] = useState(false);
+  const [destinations, setDestinations] = useState<any[]>([]);
+  const [showDestinationDialog, setShowDestinationDialog] = useState(false);
   const [editingTask, setEditingTask] = useState<any>(null);
   const [editingDriver, setEditingDriver] = useState<any>(null);
   const [editingPassenger, setEditingPassenger] = useState<any>(null);
+  const [destinationForm, setDestinationForm] = useState({
+    name: "",
+    email: "",
+    phone: "",
+    pin_password: "",
+  });
   const [taskForm, setTaskForm] = useState({
     passenger_name: "",
     pickup_location: "",
@@ -67,12 +75,20 @@ export default function Admin() {
   }
 
   async function loadData() {
-    const [driversRes, passengersRes, tasksRes, templatesRes, settingsRes] = await Promise.all([
+    const [
+      driversRes, 
+      passengersRes, 
+      tasksRes, 
+      templatesRes, 
+      settingsRes,
+      destinationsRes
+    ] = await Promise.all([
       supabase.from("drivers").select("*").order("name"),
       supabase.from("passengers").select("*").order("name"),
       supabase.from("tasks").select("*").order("created_at", { ascending: false }),
       supabase.from("message_templates").select("*").order("template_key"),
       supabase.from("app_settings").select("*"),
+      supabase.from("destinations").select("*").order("name"),
     ]);
 
     setDrivers(driversRes.data || []);
@@ -100,7 +116,7 @@ export default function Admin() {
     }
     setPassengers(orderedPassengers);
     setTemplates(templatesRes.data || []);
-
+    setDestinations(destinationsRes.data || []);
   }
 
   async function createOrUpdateTask() {
@@ -258,6 +274,52 @@ export default function Admin() {
       return;
     }
     toast({ title: "Passenger deleted" });
+    loadData();
+  }
+
+  async function createOrUpdateDestination() {
+    const { name, email, phone, pin_password } = destinationForm;
+    if (!name || !pin_password) {
+      toast({ title: "Name and PIN are required", variant: "destructive" });
+      return;
+    }
+
+    if (editingDestination) {
+      const { error } = await supabase
+        .from("destinations")
+        .update({ name, email, phone, pin_password })
+        .eq("id", editingDestination.id);
+
+      if (error) {
+        toast({ title: "Failed to update destination", variant: "destructive" });
+        return;
+      }
+      toast({ title: "Destination updated" });
+    } else {
+      const { error } = await supabase
+        .from("destinations")
+        .insert([{ name, email, phone, pin_password }]);
+
+      if (error) {
+        toast({ title: "Failed to create destination", variant: "destructive" });
+        return;
+      }
+      toast({ title: "Destination created" });
+    }
+
+    setShowDestinationDialog(false);
+    setEditingDestination(null);
+    setDestinationForm({ name: "", email: "", phone: "", pin_password: "" });
+    loadData();
+  }
+
+  async function deleteDestination(id: string) {
+    const { error } = await supabase.from("destinations").delete().eq("id", id);
+    if (error) {
+      toast({ title: "Failed to delete destination", variant: "destructive" });
+      return;
+    }
+    toast({ title: "Destination deleted" });
     loadData();
   }
 
@@ -448,10 +510,11 @@ export default function Admin() {
 
       <div className="container mx-auto px-4 py-8 max-w-5xl">
         <Tabs defaultValue="tasks" className="space-y-6">
-          <TabsList className="grid w-full grid-cols-5 gap-1">
+          <TabsList className="grid w-full grid-cols-6 gap-1">
             <TabsTrigger value="tasks" className="text-xs sm:text-sm">Tasks</TabsTrigger>
             <TabsTrigger value="drivers" className="text-xs sm:text-sm">Drivers</TabsTrigger>
             <TabsTrigger value="passengers" className="text-xs sm:text-sm">Passengers</TabsTrigger>
+            <TabsTrigger value="destinations" className="text-xs sm:text-sm">Destinations</TabsTrigger>
             <TabsTrigger value="templates" className="text-xs sm:text-sm">Templates</TabsTrigger>
             <TabsTrigger value="settings" className="text-xs sm:text-sm">Settings</TabsTrigger>
           </TabsList>
@@ -703,6 +766,56 @@ export default function Admin() {
             </div>
           </TabsContent>
 
+          <TabsContent value="destinations" className="space-y-4">
+            <div className="flex justify-between items-center">
+              <h2 className="text-2xl font-bold">Manage Destinations</h2>
+              <Button
+                onClick={() => {
+                  setEditingDestination(null);
+                  setDestinationForm({ name: "", email: "", phone: "", pin_password: "" });
+                  setShowDestinationDialog(true);
+                }}
+              >
+                <Plus className="mr-2 h-4 w-4" />
+                Add Destination
+              </Button>
+            </div>
+            <div className="space-y-3">
+              {destinations.map((destination) => (
+                <Card key={destination.id} className="p-4">
+                  <div className="flex justify-between items-center">
+                    <div>
+                      <h3 className="font-semibold text-lg">{destination.name}</h3>
+                      <p className="text-sm text-muted-foreground">{destination.email || "No email"}</p>
+                      <p className="text-sm text-muted-foreground">{destination.phone || "No phone"}</p>
+                    </div>
+                    <div className="flex gap-2">
+                      <Button
+                        size="icon"
+                        variant="outline"
+                        onClick={() => {
+                          setEditingDestination(destination);
+                          setDestinationForm({
+                            name: destination.name,
+                            email: destination.email || "",
+                            phone: destination.phone || "",
+                            pin_password: destination.pin_password,
+                          });
+                          setShowDestinationDialog(true);
+                        }}
+                      >
+                        <Edit className="h-4 w-4" />
+                      </Button>
+                      <Button size="icon" variant="destructive" onClick={() => deleteDestination(destination.id)}>
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  </div>
+                </Card>
+              ))}
+            </div>
+          </TabsContent>
+
           <TabsContent value="templates" className="space-y-4">
             <h2 className="text-2xl font-bold">Message Templates</h2>
             <p className="text-sm text-muted-foreground">
@@ -906,6 +1019,53 @@ export default function Admin() {
             </div>
             <Button onClick={createOrUpdatePassenger} className="w-full">
               {editingPassenger ? "Update Passenger" : "Add Passenger"}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={showDestinationDialog} onOpenChange={setShowDestinationDialog}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle>{editingDestination ? "Edit Destination" : "Add New Destination"}</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div>
+              <Label>Name *</Label>
+              <Input
+                value={destinationForm.name}
+                onChange={(e) => setDestinationForm({ ...destinationForm, name: e.target.value })}
+                placeholder="Enter destination name"
+              />
+            </div>
+            <div>
+              <Label>Email</Label>
+              <Input
+                type="email"
+                value={destinationForm.email}
+                onChange={(e) => setDestinationForm({ ...destinationForm, email: e.target.value })}
+                placeholder="Enter email (optional)"
+              />
+            </div>
+            <div>
+              <Label>Phone</Label>
+              <Input
+                value={destinationForm.phone}
+                onChange={(e) => setDestinationForm({ ...destinationForm, phone: e.target.value })}
+                placeholder="Enter phone (optional)"
+              />
+            </div>
+            <div>
+              <Label>PIN Password *</Label>
+              <Input
+                type="password"
+                value={destinationForm.pin_password}
+                onChange={(e) => setDestinationForm({ ...destinationForm, pin_password: e.target.value })}
+                placeholder="Enter 4-digit PIN"
+              />
+            </div>
+            <Button onClick={createOrUpdateDestination} className="w-full">
+              {editingDestination ? "Update Destination" : "Add Destination"}
             </Button>
           </div>
         </DialogContent>
