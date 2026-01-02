@@ -291,17 +291,19 @@ export default function Admin() {
         .eq("id", editingDestination.id);
 
       if (error) {
-        toast({ title: "Failed to update destination", variant: "destructive" });
+        console.error("Failed to update destination:", error);
+        toast({ title: "Failed to update destination", description: error.message, variant: "destructive" });
         return;
       }
       toast({ title: "Destination updated" });
     } else {
       const { error } = await supabase
         .from("destinations")
-        .insert([{ name, address }]);
+        .insert([{ name, address, email: null, phone: null, pin_password: null }]); // include optional fields
 
       if (error) {
-        toast({ title: "Failed to create destination", variant: "destructive" });
+        console.error("Failed to create destination:", error);
+        toast({ title: "Failed to create destination", description: error.message, variant: "destructive" });
         return;
       }
       toast({ title: "Destination created" });
