@@ -289,18 +289,50 @@ export default function Admin() {
 
   async function updateSettings() {
     const updates = [
-      { key: "telegram_bot_token", value: settings.telegram_bot_token },
-      { key: "telegram_chat_id", value: settings.telegram_chat_id },
-      { key: "admin_passkey", value: settings.admin_passkey },
+      { key: "telegram_bot_token", value: settings.telegram_bot_token ?? "" },
+      { key: "telegram_chat_id", value: settings.telegram_chat_id ?? "" },
+      { key: "admin_passkey", value: settings.admin_passkey ?? "" },
     ];
 
     for (const update of updates) {
       const { error } = await (supabase as any).rpc("upsert_app_setting", {
         p_key: update.key,
-        p_value: update.value ?? "",
+        p_value: update.value,
       });
-      if (error) {
-        toast({ title: "Failed to update settings", description: error.message, variant: "destructive" });
+
+      if (!error) continue;
+
+      // Fallback: update existing row
+      const { data: existing } = await supabase
+        .from("app_settings")
+        .select("setting_key")
+        .eq("setting_key", update.key)
+        .maybeSingle();
+
+      if (existing) {
+        const { error: updateError } = await supabase
+          .from("app_settings")
+          .update({ setting_value: update.value })
+          .eq("setting_key", update.key);
+
+        if (updateError) {
+          toast({ title: "Failed to update settings", description: updateError.message, variant: "destructive" });
+          return;
+        }
+        continue;
+      }
+
+      // Last resort: attempt insert (may be blocked by RLS)
+      const { error: insertError } = await supabase
+        .from("app_settings")
+        .insert([{ setting_key: update.key, setting_value: update.value }]);
+
+      if (insertError) {
+        toast({
+          title: "Failed to update settings",
+          description: `RPC missing and insert blocked by RLS for '${update.key}'. Seed this key first.`,
+          variant: "destructive",
+        });
         return;
       }
     }
@@ -384,12 +416,47 @@ export default function Admin() {
   async function savePassengerOrder() {
     const orderIds = passengers.map((p) => p.id);
     const value = JSON.stringify(orderIds);
+
     const { error } = await (supabase as any).rpc("upsert_app_setting", {
       p_key: "passenger_order",
       p_value: value,
     });
-    if (error) {
-      toast({ title: "Failed to save order", description: error.message, variant: "destructive" });
+
+    if (!error) {
+      toast({ title: "Passenger order saved" });
+      return;
+    }
+
+    const { data: existing } = await supabase
+      .from("app_settings")
+      .select("setting_key")
+      .eq("setting_key", "passenger_order")
+      .maybeSingle();
+
+    if (existing) {
+      const { error: updateError } = await supabase
+        .from("app_settings")
+        .update({ setting_value: value })
+        .eq("setting_key", "passenger_order");
+
+      if (updateError) {
+        toast({ title: "Failed to save order", description: updateError.message, variant: "destructive" });
+        return;
+      }
+      toast({ title: "Passenger order saved" });
+      return;
+    }
+
+    const { error: insertError } = await supabase
+      .from("app_settings")
+      .insert([{ setting_key: "passenger_order", setting_value: value }]);
+
+    if (insertError) {
+      toast({
+        title: "Failed to save order",
+        description: "RPC function missing and insert blocked by RLS. Please seed the 'passenger_order' setting.",
+        variant: "destructive",
+      });
       return;
     }
     toast({ title: "Passenger order saved" });
@@ -397,12 +464,46 @@ export default function Admin() {
 
   async function persistDailyDestinations(next: string[]) {
     const value = JSON.stringify(next);
+
+    // Try secure RPC first
     const { error } = await (supabase as any).rpc("upsert_app_setting", {
       p_key: "daily_destinations",
       p_value: value,
     });
-    if (error) {
-      toast({ title: "Failed to save destinations", description: error.message, variant: "destructive" });
+
+    if (!error) return true;
+
+    // Fallback: update existing row (avoids RLS insert)
+    const { data: existing } = await supabase
+      .from("app_settings")
+      .select("setting_key")
+      .eq("setting_key", "daily_destinations")
+      .maybeSingle();
+
+    if (existing) {
+      const { error: updateError } = await supabase
+        .from("app_settings")
+        .update({ setting_value: value })
+        .eq("setting_key", "daily_destinations");
+
+      if (updateError) {
+        toast({ title: "Failed to save destinations", description: updateError.message, variant: "destructive" });
+        return false;
+      }
+      return true;
+    }
+
+    // As a last resort, attempt insert (may be blocked by RLS)
+    const { error: insertError } = await supabase
+      .from("app_settings")
+      .insert([{ setting_key: "daily_destinations", setting_value: value }]);
+
+    if (insertError) {
+      toast({
+        title: "Failed to save destinations",
+        description: "RPC function missing and insert blocked by RLS. Please seed the 'daily_destinations' setting in app_settings or enable the RPC.",
+        variant: "destructive",
+      });
       return false;
     }
     return true;
