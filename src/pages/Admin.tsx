@@ -27,12 +27,9 @@ export default function Admin() {
   const [showTaskDialog, setShowTaskDialog] = useState(false);
   const [showDriverDialog, setShowDriverDialog] = useState(false);
   const [showPassengerDialog, setShowPassengerDialog] = useState(false);
-  const [showDestinationDialog, setShowDestinationDialog] = useState(false);
   const [editingTask, setEditingTask] = useState<any>(null);
   const [editingDriver, setEditingDriver] = useState<any>(null);
   const [editingPassenger, setEditingPassenger] = useState<any>(null);
-  const [editingDestinationIndex, setEditingDestinationIndex] = useState<number | null>(null);
-  const [destinationInput, setDestinationInput] = useState("");
   const [taskForm, setTaskForm] = useState({
     passenger_name: "",
     pickup_location: "",
@@ -51,7 +48,6 @@ export default function Admin() {
     name: "",
     default_pickup_location: "",
   });
-  const [dailyDestinations, setDailyDestinations] = useState<string[]>([]);
 
   useEffect(() => {
     if (isAuthenticated) {
@@ -87,10 +83,10 @@ export default function Admin() {
     });
     setSettings(settingsMap);
     let orderedPassengers = passengersRes.data || [];
-    const passengerOrderStr = settingsMap["passenger_order"];
-    if (passengerOrderStr) {
+    const orderStr = settingsMap["passenger_order"];
+    if (orderStr) {
       try {
-        const orderIds: string[] = JSON.parse(passengerOrderStr);
+        const orderIds: string[] = JSON.parse(orderStr);
         const indexMap = new Map(orderIds.map((id, i) => [id, i]));
         orderedPassengers.sort((a: any, b: any) => {
           const ai = indexMap.has(a.id) ? (indexMap.get(a.id) as number) : Number.POSITIVE_INFINITY;
@@ -104,15 +100,7 @@ export default function Admin() {
     }
     setPassengers(orderedPassengers);
     setTemplates(templatesRes.data || []);
-    
-    // Load global daily destinations from app_settings
-    const dailyDestinationsStr = settingsMap["daily_destinations"];
-    try {
-      const parsed: unknown = dailyDestinationsStr ? JSON.parse(dailyDestinationsStr) : [];
-      setDailyDestinations(Array.isArray(parsed) ? (parsed as string[]) : []);
-    } catch {
-      setDailyDestinations([]);
-    }
+
   }
 
   async function createOrUpdateTask() {
@@ -289,36 +277,16 @@ export default function Admin() {
 
   async function updateSettings() {
     const updates = [
-      { key: "telegram_bot_token", value: settings.telegram_bot_token ?? "" },
-      { key: "telegram_chat_id", value: settings.telegram_chat_id ?? "" },
-      { key: "admin_passkey", value: settings.admin_passkey ?? "" },
+      { key: "telegram_bot_token", value: settings.telegram_bot_token },
+      { key: "telegram_chat_id", value: settings.telegram_chat_id },
+      { key: "admin_passkey", value: settings.admin_passkey },
     ];
 
     for (const update of updates) {
-      const { data: existing } = await supabase
-        .from("app_settings")
-        .select("setting_key")
-        .eq("setting_key", update.key)
-        .maybeSingle();
-
-      if (!existing) {
-        toast({
-          title: "Failed to update settings",
-          description: `Missing '${update.key}' setting. Please seed defaults first.`,
-          variant: "destructive",
-        });
-        return;
-      }
-
-      const { error: updateError } = await supabase
+      await supabase
         .from("app_settings")
         .update({ setting_value: update.value })
         .eq("setting_key", update.key);
-
-      if (updateError) {
-        toast({ title: "Failed to update settings", description: updateError.message, variant: "destructive" });
-        return;
-      }
     }
 
     toast({ title: "Settings updated" });
@@ -400,92 +368,32 @@ export default function Admin() {
   async function savePassengerOrder() {
     const orderIds = passengers.map((p) => p.id);
     const value = JSON.stringify(orderIds);
-
+    // Try to find existing setting
     const { data: existing } = await supabase
       .from("app_settings")
-      .select("setting_key")
+      .select("*")
       .eq("setting_key", "passenger_order")
       .maybeSingle();
 
-    if (!existing) {
-      toast({
-        title: "Failed to save order",
-        description: "Missing 'passenger_order' setting. Please seed it first.",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    const { error: updateError } = await supabase
-      .from("app_settings")
-      .update({ setting_value: value })
-      .eq("setting_key", "passenger_order");
-
-    if (updateError) {
-      toast({ title: "Failed to save order", description: updateError.message, variant: "destructive" });
-      return;
+    if (existing) {
+      const { error } = await supabase
+        .from("app_settings")
+        .update({ setting_value: value })
+        .eq("setting_key", "passenger_order");
+      if (error) {
+        toast({ title: "Failed to save order", description: error.message, variant: "destructive" });
+        return;
+      }
+    } else {
+      const { error } = await supabase
+        .from("app_settings")
+        .insert([{ setting_key: "passenger_order", setting_value: value }]);
+      if (error) {
+        toast({ title: "Failed to save order", description: error.message, variant: "destructive" });
+        return;
+      }
     }
     toast({ title: "Passenger order saved" });
-  }
-
-  async function persistDailyDestinations(next: string[]) {
-    const value = JSON.stringify(next);
-
-    // Update existing row only (avoids RLS insert)
-    const { data: existing } = await supabase
-      .from("app_settings")
-      .select("setting_key")
-      .eq("setting_key", "daily_destinations")
-      .maybeSingle();
-
-    if (!existing) {
-      toast({
-        title: "Failed to save destinations",
-        description: "Missing 'daily_destinations' setting. Please seed it first.",
-        variant: "destructive",
-      });
-      return false;
-    }
-
-    const { error: updateError } = await supabase
-      .from("app_settings")
-      .update({ setting_value: value })
-      .eq("setting_key", "daily_destinations");
-
-    if (updateError) {
-      toast({ title: "Failed to save destinations", description: updateError.message, variant: "destructive" });
-      return false;
-    }
-    return true;
-  }
-
-  async function createOrUpdateDestination() {
-    const addr = destinationInput.trim();
-    if (!addr) {
-      toast({ title: "Destination address is required", variant: "destructive" });
-      return;
-    }
-    const next = [...dailyDestinations];
-    if (editingDestinationIndex !== null) {
-      next[editingDestinationIndex] = addr;
-    } else {
-      next.unshift(addr);
-    }
-    const ok = await persistDailyDestinations(next);
-    if (!ok) return;
-    setDailyDestinations(next);
-    toast({ title: editingDestinationIndex !== null ? "Destination updated" : "Destination added" });
-    setShowDestinationDialog(false);
-    setEditingDestinationIndex(null);
-    setDestinationInput("");
-  }
-
-  async function deleteDestination(index: number) {
-    const next = dailyDestinations.filter((_, i) => i !== index);
-    const ok = await persistDailyDestinations(next);
-    if (!ok) return;
-    setDailyDestinations(next);
-    toast({ title: "Destination deleted" });
   }
 
   if (!isAuthenticated) {
@@ -540,13 +448,12 @@ export default function Admin() {
 
       <div className="container mx-auto px-4 py-8 max-w-5xl">
         <Tabs defaultValue="tasks" className="space-y-6">
-          <TabsList className="grid w-full grid-cols-6 gap-1">
+          <TabsList className="grid w-full grid-cols-5 gap-1">
             <TabsTrigger value="tasks" className="text-xs sm:text-sm">Tasks</TabsTrigger>
             <TabsTrigger value="drivers" className="text-xs sm:text-sm">Drivers</TabsTrigger>
             <TabsTrigger value="passengers" className="text-xs sm:text-sm">Passengers</TabsTrigger>
             <TabsTrigger value="templates" className="text-xs sm:text-sm">Templates</TabsTrigger>
             <TabsTrigger value="settings" className="text-xs sm:text-sm">Settings</TabsTrigger>
-            <TabsTrigger value="destinations" className="text-xs sm:text-sm">Destinations</TabsTrigger>
           </TabsList>
 
           <TabsContent value="tasks" className="space-y-6">
@@ -863,58 +770,6 @@ export default function Admin() {
               <Button onClick={updateSettings}>Save Settings</Button>
             </Card>
           </TabsContent>
-
-          <TabsContent value="destinations" className="space-y-4">
-            <div className="flex justify-between items-center">
-              <h2 className="text-2xl font-bold">Manage Daily Destinations</h2>
-              <Button
-                onClick={() => {
-                  setEditingDestinationIndex(null);
-                  setDestinationInput("");
-                  setShowDestinationDialog(true);
-                }}
-              >
-                <Plus className="mr-2 h-4 w-4" />
-                Add Destination
-              </Button>
-            </div>
-            {dailyDestinations.length === 0 ? (
-              <Card className="p-6 text-center text-muted-foreground">
-                No destinations added for today
-              </Card>
-            ) : (
-              <div className="space-y-3">
-                {dailyDestinations.map((addr, i) => (
-                  <Card key={`${addr}-${i}`} className="p-4">
-                    <div className="flex justify-between items-start">
-                      <div className="space-y-1">
-                        <h3 className="font-semibold text-lg">Destination</h3>
-                        <p className="text-sm text-muted-foreground">
-                          <span className="font-medium">Address:</span> {addr}
-                        </p>
-                      </div>
-                      <div className="flex gap-2">
-                        <Button
-                          size="icon"
-                          variant="outline"
-                          onClick={() => {
-                            setEditingDestinationIndex(i);
-                            setDestinationInput(addr);
-                            setShowDestinationDialog(true);
-                          }}
-                        >
-                          <Edit className="h-4 w-4" />
-                        </Button>
-                        <Button size="icon" variant="destructive" onClick={() => deleteDestination(i)}>
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
-                      </div>
-                    </div>
-                  </Card>
-                ))}
-              </div>
-            )}
-          </TabsContent>
         </Tabs>
       </div>
 
@@ -1051,27 +906,6 @@ export default function Admin() {
             </div>
             <Button onClick={createOrUpdatePassenger} className="w-full">
               {editingPassenger ? "Update Passenger" : "Add Passenger"}
-            </Button>
-          </div>
-        </DialogContent>
-      </Dialog>
-
-      <Dialog open={showDestinationDialog} onOpenChange={setShowDestinationDialog}>
-        <DialogContent className="max-w-lg">
-          <DialogHeader>
-            <DialogTitle>{editingDestinationIndex !== null ? "Edit Destination" : "Add New Destination"}</DialogTitle>
-          </DialogHeader>
-          <div className="space-y-4">
-            <div>
-              <Label>Address *</Label>
-              <Input
-                value={destinationInput}
-                onChange={(e) => setDestinationInput(e.target.value)}
-                placeholder="Enter destination address"
-              />
-            </div>
-            <Button onClick={createOrUpdateDestination} className="w-full">
-              {editingDestinationIndex !== null ? "Update Destination" : "Add Destination"}
             </Button>
           </div>
         </DialogContent>

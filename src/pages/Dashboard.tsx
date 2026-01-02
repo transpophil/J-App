@@ -5,8 +5,6 @@ import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
-import { Input } from "@/components/ui/input";
-import { Checkbox } from "@/components/ui/checkbox";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -33,9 +31,6 @@ export default function Dashboard() {
   const [showEtaDialog, setShowEtaDialog] = useState(false);
   const [tripMode, setTripMode] = useState<"pickup" | "travel">("pickup");
   const [hasNewTasks, setHasNewTasks] = useState(false);
-  const [meetingLocation, setMeetingLocation] = useState<string>("");
-  const [saveMeetingLocation, setSaveMeetingLocation] = useState<boolean>(false);
-  const [savedLocations, setSavedLocations] = useState<any[]>([]);
 
   // Subscribe to realtime updates for tasks
   useEffect(() => {
@@ -51,9 +46,6 @@ export default function Dashboard() {
       .on("postgres_changes", { event: "*", schema: "public", table: "tasks" }, () => {
         loadData();
         loadNewTasks();
-      })
-      .on("postgres_changes", { event: "*", schema: "public", table: "app_settings" }, () => {
-        loadData();
       })
       .subscribe();
 
@@ -120,27 +112,6 @@ export default function Dashboard() {
       }
     }
     setPassengers(orderedPassengers);
-
-    // Load global daily destinations from app_settings
-    const { data: dailyDestSetting } = await supabase
-      .from("app_settings")
-      .select("setting_value")
-      .eq("setting_key", "daily_destinations")
-      .maybeSingle();
-    let destinationsList: { id: string; address: string }[] = [];
-    if (dailyDestSetting?.setting_value) {
-      try {
-        const arr = JSON.parse(dailyDestSetting.setting_value);
-        if (Array.isArray(arr)) {
-          destinationsList = arr
-            .filter((a) => typeof a === "string" && a.trim().length > 0)
-            .map((address: string, idx: number) => ({ id: String(idx), address }));
-        }
-      } catch {
-        // ignore parse errors
-      }
-    }
-    setSavedLocations(destinationsList);
 
     // Load current passenger trip task for this driver (passenger trips only - no task_name)
     const { data: current } = await supabase
@@ -212,12 +183,9 @@ export default function Dashboard() {
     const finalPassengerNames = currentTask 
       ? `${currentTask.passenger_name} & ${passengerNames}`
       : passengerNames;
-    let finalPickupLocations = currentTask 
+    const finalPickupLocations = currentTask
       ? `${currentTask.pickup_location}, ${pickupLocations}`
       : pickupLocations;
-    if (meetingLocation.trim()) {
-      finalPickupLocations = `${meetingLocation.trim()}, ${finalPickupLocations}`;
-    }
 
     // Create or update task
     const taskData = {
@@ -271,53 +239,6 @@ export default function Dashboard() {
       taskId = data.id;
     }
 
-    // Optionally save destination into the daily list
-    if (saveMeetingLocation && meetingLocation.trim()) {
-      const { data: dailyDestSetting } = await supabase
-        .from("app_settings")
-        .select("setting_value")
-        .eq("setting_key", "daily_destinations")
-        .maybeSingle();
-
-      let currentList: string[] = [];
-      if (dailyDestSetting?.setting_value) {
-        try {
-          const parsed = JSON.parse(dailyDestSetting.setting_value);
-          if (Array.isArray(parsed)) currentList = parsed;
-        } catch {
-          currentList = [];
-        }
-      }
-
-      const addr = meetingLocation.trim();
-      const nextList = [addr, ...currentList.filter((a) => a !== addr)];
-
-      // Update existing row only; do not insert to avoid RLS issues
-      const { data: existing } = await supabase
-        .from("app_settings")
-        .select("setting_key")
-        .eq("setting_key", "daily_destinations")
-        .maybeSingle();
-
-      if (existing) {
-        const { error: updateError } = await supabase
-          .from("app_settings")
-          .update({ setting_value: JSON.stringify(nextList) })
-          .eq("setting_key", "daily_destinations");
-
-        if (updateError) {
-          console.error("Failed to save destination (update):", updateError);
-          toast({ title: "Failed to save destination", description: updateError.message, variant: "destructive" });
-        }
-      } else {
-        toast({
-          title: "Failed to save destination",
-          description: "Missing 'daily_destinations' setting. Please seed defaults first.",
-          variant: "destructive",
-        });
-      }
-    }
-
     // Send Telegram message using template
     await sendTelegramTemplate("lets_go", {
       driver: currentDriver.name,
@@ -328,8 +249,6 @@ export default function Dashboard() {
     toast({ title: "Trip started! Message sent to group." });
     setShowEtaDialog(false);
     setTripMode("travel");
-    setMeetingLocation("");
-    setSaveMeetingLocation(false);
     loadData();
   }
 
@@ -460,7 +379,7 @@ export default function Dashboard() {
       toast({ title: "Keine Passagiere ausgewählt", variant: "destructive" });
       return;
     }
-    const destination = meetingLocation.trim() || orderedLocations[orderedLocations.length - 1];
+    const destination = orderedLocations[orderedLocations.length - 1];
     const waypointList = orderedLocations.slice(0, -1);
 
     const isIOS = /iPhone|iPad|iPod/i.test(navigator.userAgent);
@@ -631,6 +550,17 @@ export default function Dashboard() {
                     </div>
 
                     <div className="space-y-3">
+                      {selectedPassengers.length > 0 && (
+                        <Button 
+                          className="w-full" 
+                          variant="outline"
+                          onClick={openGoogleMapsRoute}
+                        >
+                          <Navigation className="mr-2 h-5 w-5" />
+                          View Route in Google Maps
+                        </Button>
+                      )}
+
                       <Button 
                         className="w-full" 
                         size="lg"
@@ -749,46 +679,35 @@ export default function Dashboard() {
                       </div>
                     </div>
 
-                    <div className="space-y-4">
-                      <Button
-                        className="w-full"
+                    <div className="grid grid-cols-3 gap-3">
+                      <Button 
+                        className="w-full" 
+                        size="lg"
+                        onClick={handleFiveMinWarning}
+                        disabled={selectedPassengers.length === 0 || currentTask?.five_min_warning_sent_at != null}
+                      >
+                        <Clock className="mr-2 h-5 w-5" />
+                        5 Min Warning
+                      </Button>
+                      <Button 
                         variant="outline"
-                        onClick={openGoogleMapsRoute}
+                        className="w-full" 
+                        size="lg"
+                        onClick={handleAddPickup}
+                      >
+                        <MapPin className="mr-2 h-5 w-5" />
+                        Add PickUp
+                      </Button>
+                      <Button 
+                        variant="default" 
+                        className="w-full" 
+                        size="lg"
+                        onClick={handleDropOff}
                         disabled={selectedPassengers.length === 0}
                       >
-                        <Navigation className="mr-2 h-5 w-5" />
-                        Open Route in Google Maps
+                        <CheckCircle2 className="mr-2 h-5 w-5" />
+                        Drop Off
                       </Button>
-                      <div className="grid grid-cols-3 gap-3">
-                        <Button 
-                          className="w-full" 
-                          size="lg"
-                          onClick={handleFiveMinWarning}
-                          disabled={selectedPassengers.length === 0 || currentTask?.five_min_warning_sent_at != null}
-                        >
-                          <Clock className="mr-2 h-5 w-5" />
-                          5 Min Warning
-                        </Button>
-                        <Button 
-                          variant="outline"
-                          className="w-full" 
-                          size="lg"
-                          onClick={handleAddPickup}
-                        >
-                          <MapPin className="mr-2 h-5 w-5" />
-                          Add PickUp
-                        </Button>
-                        <Button 
-                          variant="default" 
-                          className="w-full" 
-                          size="lg"
-                          onClick={handleDropOff}
-                          disabled={selectedPassengers.length === 0}
-                        >
-                          <CheckCircle2 className="mr-2 h-5 w-5" />
-                          Drop Off
-                        </Button>
-                      </div>
                     </div>
 
                     {currentTask?.five_min_warning_sent_at && (
@@ -813,43 +732,6 @@ export default function Dashboard() {
             <div className="space-y-2">
               <Label>Select Time</Label>
               <TimeWheel value={eta} onChange={setEta} />
-            </div>
-            <div className="space-y-2">
-              <Label>Destination (optional)</Label>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                <Select
-                  onValueChange={(id) => {
-                    const loc = savedLocations.find((l: any) => l.id === id);
-                    setMeetingLocation(loc?.address || "");
-                  }}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Choose saved destination" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {savedLocations.map((loc: any) => (
-                      <SelectItem key={loc.id} value={loc.id}>
-                        {loc.name || loc.address}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                <Input
-                  value={meetingLocation}
-                  onChange={(e) => setMeetingLocation(e.target.value)}
-                  placeholder="Enter destination address"
-                />
-              </div>
-              <div className="flex items-center space-x-2">
-                <Checkbox
-                  id="saveMeetingLocation"
-                  checked={saveMeetingLocation}
-                  onCheckedChange={(v) => setSaveMeetingLocation(Boolean(v))}
-                />
-                <Label htmlFor="saveMeetingLocation" className="text-sm text-muted-foreground">
-                  Save this destination for future
-                </Label>
-              </div>
             </div>
             <div className="grid grid-cols-2 gap-3">
               <Button 
