@@ -56,6 +56,8 @@ export default function Admin() {
     name: "",
     default_pickup_location: "",
   });
+  // ADDED: state for the destination being edited
+  const [editingDestination, setEditingDestination] = useState<any>(null);
 
   useEffect(() => {
     if (isAuthenticated) {
