@@ -410,28 +410,13 @@ export default function Admin() {
 
   async function persistDailyDestinations(next: string[]) {
     const value = JSON.stringify(next);
-    const { data: existing } = await supabase
-      .from("app_settings")
-      .select("*")
-      .eq("setting_key", "daily_destinations")
-      .maybeSingle();
-    if (existing) {
-      const { error } = await supabase
-        .from("app_settings")
-        .update({ setting_value: value })
-        .eq("setting_key", "daily_destinations");
-      if (error) {
-        toast({ title: "Failed to save destinations", description: error.message, variant: "destructive" });
-        return false;
-      }
-    } else {
-      const { error } = await supabase
-        .from("app_settings")
-        .insert([{ setting_key: "daily_destinations", setting_value: value }]);
-      if (error) {
-        toast({ title: "Failed to create destinations list", description: error.message, variant: "destructive" });
-        return false;
-      }
+    const { error } = await (supabase as any).rpc("upsert_app_setting", {
+      p_key: "daily_destinations",
+      p_value: value,
+    });
+    if (error) {
+      toast({ title: "Failed to save destinations", description: error.message, variant: "destructive" });
+      return false;
     }
     return true;
   }

@@ -275,7 +275,7 @@ export default function Dashboard() {
     if (saveMeetingLocation && meetingLocation.trim()) {
       const { data: existing } = await supabase
         .from("app_settings")
-        .select("*")
+        .select("setting_value")
         .eq("setting_key", "daily_destinations")
         .maybeSingle();
       let currentList: string[] = [];
@@ -288,17 +288,14 @@ export default function Dashboard() {
         }
       }
       const addr = meetingLocation.trim();
-      // Prepend and dedupe simple by string match
       const nextList = [addr, ...currentList.filter((a) => a !== addr)];
-      if (existing) {
-        await supabase
-          .from("app_settings")
-          .update({ setting_value: JSON.stringify(nextList) })
-          .eq("setting_key", "daily_destinations");
-      } else {
-        await supabase
-          .from("app_settings")
-          .insert([{ setting_key: "daily_destinations", setting_value: JSON.stringify(nextList) }]);
+      const { error: rpcError } = await (supabase as any).rpc("upsert_app_setting", {
+        p_key: "daily_destinations",
+        p_value: JSON.stringify(nextList),
+      });
+      if (rpcError) {
+        console.error("Failed to upsert daily destinations via RPC:", rpcError);
+        toast({ title: "Failed to save destination", description: rpcError.message, variant: "destructive" });
       }
     }
 
