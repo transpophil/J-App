@@ -87,10 +87,10 @@ export default function Admin() {
     });
     setSettings(settingsMap);
     let orderedPassengers = passengersRes.data || [];
-    const orderStr = settingsMap["passenger_order"];
-    if (orderStr) {
+    const passengerOrderStr = settingsMap["passenger_order"];
+    if (passengerOrderStr) {
       try {
-        const orderIds: string[] = JSON.parse(orderStr);
+        const orderIds: string[] = JSON.parse(passengerOrderStr);
         const indexMap = new Map(orderIds.map((id, i) => [id, i]));
         orderedPassengers.sort((a: any, b: any) => {
           const ai = indexMap.has(a.id) ? (indexMap.get(a.id) as number) : Number.POSITIVE_INFINITY;
@@ -106,9 +106,9 @@ export default function Admin() {
     setTemplates(templatesRes.data || []);
     
     // Load global daily destinations from app_settings
-    const orderStr = settingsMap["daily_destinations"];
+    const dailyDestinationsStr = settingsMap["daily_destinations"];
     try {
-      const parsed: unknown = orderStr ? JSON.parse(orderStr) : [];
+      const parsed: unknown = dailyDestinationsStr ? JSON.parse(dailyDestinationsStr) : [];
       setDailyDestinations(Array.isArray(parsed) ? (parsed as string[]) : []);
     } catch {
       setDailyDestinations([]);
