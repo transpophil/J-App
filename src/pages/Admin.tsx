@@ -295,10 +295,14 @@ export default function Admin() {
     ];
 
     for (const update of updates) {
-      await supabase
-        .from("app_settings")
-        .update({ setting_value: update.value })
-        .eq("setting_key", update.key);
+      const { error } = await (supabase as any).rpc("upsert_app_setting", {
+        p_key: update.key,
+        p_value: update.value ?? "",
+      });
+      if (error) {
+        toast({ title: "Failed to update settings", description: error.message, variant: "destructive" });
+        return;
+      }
     }
 
     toast({ title: "Settings updated" });
@@ -380,30 +384,13 @@ export default function Admin() {
   async function savePassengerOrder() {
     const orderIds = passengers.map((p) => p.id);
     const value = JSON.stringify(orderIds);
-    // Try to find existing setting
-    const { data: existing } = await supabase
-      .from("app_settings")
-      .select("*")
-      .eq("setting_key", "passenger_order")
-      .maybeSingle();
-
-    if (existing) {
-      const { error } = await supabase
-        .from("app_settings")
-        .update({ setting_value: value })
-        .eq("setting_key", "passenger_order");
-      if (error) {
-        toast({ title: "Failed to save order", description: error.message, variant: "destructive" });
-        return;
-      }
-    } else {
-      const { error } = await supabase
-        .from("app_settings")
-        .insert([{ setting_key: "passenger_order", setting_value: value }]);
-      if (error) {
-        toast({ title: "Failed to save order", description: error.message, variant: "destructive" });
-        return;
-      }
+    const { error } = await (supabase as any).rpc("upsert_app_setting", {
+      p_key: "passenger_order",
+      p_value: value,
+    });
+    if (error) {
+      toast({ title: "Failed to save order", description: error.message, variant: "destructive" });
+      return;
     }
     toast({ title: "Passenger order saved" });
   }
