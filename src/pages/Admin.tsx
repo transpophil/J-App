@@ -52,6 +52,11 @@ export default function Admin() {
     default_pickup_location: "",
   });
   const [destinations, setDestinations] = useState<any[]>([]);
+  const [destinationForm, setDestinationForm] = useState({
+    driver_id: "",
+    name: "",
+    address: "",
+  });
 
   useEffect(() => {
     if (isAuthenticated) {
