@@ -17,6 +17,7 @@ import TasksBoard from "@/components/TasksBoard";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import logo from "@/assets/j-app-logo.jpg";
 import backgroundImage from "@/assets/background-image.png";
+import SupabaseStatus from "@/components/SupabaseStatus";
 
 export default function Dashboard() {
   const navigate = useNavigate();
@@ -466,7 +467,8 @@ export default function Dashboard() {
               <p className="text-base text-muted-foreground mt-0.5">Hello, {currentDriver.name}</p>
             </div>
           </div>
-          <div className="flex gap-2">
+          <div className="flex gap-2 items-center">
+            <SupabaseStatus className="hidden sm:inline-flex" />
             <Button variant="outline" size="icon" onClick={handleLogout} className="bg-white/80 hover:bg-white">
               <LogOut className="h-5 w-5" />
             </Button>
