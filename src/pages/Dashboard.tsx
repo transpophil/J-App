@@ -411,7 +411,7 @@ export default function Dashboard() {
       toast({ title: "Keine Passagiere ausgewählt", variant: "destructive" });
       return;
     }
-    const destination = orderedLocations[orderedLocations.length - 1];
+    const destination = meetingLocation.trim() || orderedLocations[orderedLocations.length - 1];
     const waypointList = orderedLocations.slice(0, -1);
 
     const isIOS = /iPhone|iPad|iPod/i.test(navigator.userAgent);
@@ -579,57 +579,9 @@ export default function Dashboard() {
                           </div>
                         ))}
                       </div>
-                      <div className="space-y-2 pt-2">
-                        <Label>Destination (optional)</Label>
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                          <Select
-                            onValueChange={(id) => {
-                              const loc = savedLocations.find((l: any) => l.id === id);
-                              setMeetingLocation(loc?.address || "");
-                            }}
-                          >
-                            <SelectTrigger>
-                              <SelectValue placeholder="Choose saved destination" />
-                            </SelectTrigger>
-                            <SelectContent>
-                              {savedLocations.map((loc: any) => (
-                                <SelectItem key={loc.id} value={loc.id}>
-                                  {loc.name || loc.address}
-                                </SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
-                          <Input
-                            value={meetingLocation}
-                            onChange={(e) => setMeetingLocation(e.target.value)}
-                            placeholder="Enter destination address"
-                          />
-                        </div>
-                        <div className="flex items-center space-x-2">
-                          <Checkbox
-                            id="saveMeetingLocation"
-                            checked={saveMeetingLocation}
-                            onCheckedChange={(v) => setSaveMeetingLocation(Boolean(v))}
-                          />
-                          <Label htmlFor="saveMeetingLocation" className="text-sm text-muted-foreground">
-                            Save this destination for future
-                          </Label>
-                        </div>
-                      </div>
                     </div>
 
                     <div className="space-y-3">
-                      {selectedPassengers.length > 0 && (
-                        <Button 
-                          className="w-full" 
-                          variant="outline"
-                          onClick={openGoogleMapsRoute}
-                        >
-                          <Navigation className="mr-2 h-5 w-5" />
-                          View Route in Google Maps
-                        </Button>
-                      )}
-
                       <Button 
                         className="w-full" 
                         size="lg"
@@ -748,35 +700,46 @@ export default function Dashboard() {
                       </div>
                     </div>
 
-                    <div className="grid grid-cols-3 gap-3">
-                      <Button 
-                        className="w-full" 
-                        size="lg"
-                        onClick={handleFiveMinWarning}
-                        disabled={selectedPassengers.length === 0 || currentTask?.five_min_warning_sent_at != null}
-                      >
-                        <Clock className="mr-2 h-5 w-5" />
-                        5 Min Warning
-                      </Button>
-                      <Button 
+                    <div className="space-y-4">
+                      <Button
+                        className="w-full"
                         variant="outline"
-                        className="w-full" 
-                        size="lg"
-                        onClick={handleAddPickup}
-                      >
-                        <MapPin className="mr-2 h-5 w-5" />
-                        Add PickUp
-                      </Button>
-                      <Button 
-                        variant="default" 
-                        className="w-full" 
-                        size="lg"
-                        onClick={handleDropOff}
+                        onClick={openGoogleMapsRoute}
                         disabled={selectedPassengers.length === 0}
                       >
-                        <CheckCircle2 className="mr-2 h-5 w-5" />
-                        Drop Off
+                        <Navigation className="mr-2 h-5 w-5" />
+                        Open Route in Google Maps
                       </Button>
+                      <div className="grid grid-cols-3 gap-3">
+                        <Button 
+                          className="w-full" 
+                          size="lg"
+                          onClick={handleFiveMinWarning}
+                          disabled={selectedPassengers.length === 0 || currentTask?.five_min_warning_sent_at != null}
+                        >
+                          <Clock className="mr-2 h-5 w-5" />
+                          5 Min Warning
+                        </Button>
+                        <Button 
+                          variant="outline"
+                          className="w-full" 
+                          size="lg"
+                          onClick={handleAddPickup}
+                        >
+                          <MapPin className="mr-2 h-5 w-5" />
+                          Add PickUp
+                        </Button>
+                        <Button 
+                          variant="default" 
+                          className="w-full" 
+                          size="lg"
+                          onClick={handleDropOff}
+                          disabled={selectedPassengers.length === 0}
+                        >
+                          <CheckCircle2 className="mr-2 h-5 w-5" />
+                          Drop Off
+                        </Button>
+                      </div>
                     </div>
 
                     {currentTask?.five_min_warning_sent_at && (
@@ -801,6 +764,43 @@ export default function Dashboard() {
             <div className="space-y-2">
               <Label>Select Time</Label>
               <TimeWheel value={eta} onChange={setEta} />
+            </div>
+            <div className="space-y-2">
+              <Label>Destination (optional)</Label>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                <Select
+                  onValueChange={(id) => {
+                    const loc = savedLocations.find((l: any) => l.id === id);
+                    setMeetingLocation(loc?.address || "");
+                  }}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Choose saved destination" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {savedLocations.map((loc: any) => (
+                      <SelectItem key={loc.id} value={loc.id}>
+                        {loc.name || loc.address}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <Input
+                  value={meetingLocation}
+                  onChange={(e) => setMeetingLocation(e.target.value)}
+                  placeholder="Enter destination address"
+                />
+              </div>
+              <div className="flex items-center space-x-2">
+                <Checkbox
+                  id="saveMeetingLocation"
+                  checked={saveMeetingLocation}
+                  onCheckedChange={(v) => setSaveMeetingLocation(Boolean(v))}
+                />
+                <Label htmlFor="saveMeetingLocation" className="text-sm text-muted-foreground">
+                  Save this destination for future
+                </Label>
+              </div>
             </div>
             <div className="grid grid-cols-2 gap-3">
               <Button 
