@@ -34,9 +34,7 @@ export default function Admin() {
   const [editingPassenger, setEditingPassenger] = useState<any>(null);
   const [destinationForm, setDestinationForm] = useState({
     name: "",
-    email: "",
-    phone: "",
-    pin_password: "",
+    address: "",
   });
   const [taskForm, setTaskForm] = useState({
     passenger_name: "",
@@ -280,16 +278,16 @@ export default function Admin() {
   }
 
   async function createOrUpdateDestination() {
-    const { name, email, phone, pin_password } = destinationForm;
-    if (!name || !pin_password) {
-      toast({ title: "Name and PIN are required", variant: "destructive" });
+    const { name, address } = destinationForm;
+    if (!name || !address) {
+      toast({ title: "Name and Address are required", variant: "destructive" });
       return;
     }
 
     if (editingDestination) {
       const { error } = await supabase
         .from("destinations")
-        .update({ name, email, phone, pin_password })
+        .update({ name, address })
         .eq("id", editingDestination.id);
 
       if (error) {
@@ -300,7 +298,7 @@ export default function Admin() {
     } else {
       const { error } = await supabase
         .from("destinations")
-        .insert([{ name, email, phone, pin_password }]);
+        .insert([{ name, address }]);
 
       if (error) {
         toast({ title: "Failed to create destination", variant: "destructive" });
@@ -311,7 +309,7 @@ export default function Admin() {
 
     setShowDestinationDialog(false);
     setEditingDestination(null);
-    setDestinationForm({ name: "", email: "", phone: "", pin_password: "" });
+    setDestinationForm({ name: "", address: "" });
     loadData();
   }
 
@@ -774,7 +772,7 @@ export default function Admin() {
               <Button
                 onClick={() => {
                   setEditingDestination(null);
-                  setDestinationForm({ name: "", email: "", phone: "", pin_password: "" });
+                  setDestinationForm({ name: "", address: "" });
                   setShowDestinationDialog(true);
                 }}
               >
@@ -788,8 +786,7 @@ export default function Admin() {
                   <div className="flex justify-between items-center">
                     <div>
                       <h3 className="font-semibold text-lg">{destination.name}</h3>
-                      <p className="text-sm text-muted-foreground">{destination.email || "No email"}</p>
-                      <p className="text-sm text-muted-foreground">{destination.phone || "No phone"}</p>
+                      <p className="text-sm text-muted-foreground">{destination.address || "No address"}</p>
                     </div>
                     <div className="flex gap-2">
                       <Button
@@ -799,9 +796,7 @@ export default function Admin() {
                           setEditingDestination(destination);
                           setDestinationForm({
                             name: destination.name,
-                            email: destination.email || "",
-                            phone: destination.phone || "",
-                            pin_password: destination.pin_password,
+                            address: destination.address || "",
                           });
                           setShowDestinationDialog(true);
                         }}
@@ -1041,29 +1036,11 @@ export default function Admin() {
               />
             </div>
             <div>
-              <Label>Email</Label>
+              <Label>Address *</Label>
               <Input
-                type="email"
-                value={destinationForm.email}
-                onChange={(e) => setDestinationForm({ ...destinationForm, email: e.target.value })}
-                placeholder="Enter email (optional)"
-              />
-            </div>
-            <div>
-              <Label>Phone</Label>
-              <Input
-                value={destinationForm.phone}
-                onChange={(e) => setDestinationForm({ ...destinationForm, phone: e.target.value })}
-                placeholder="Enter phone (optional)"
-              />
-            </div>
-            <div>
-              <Label>PIN Password *</Label>
-              <Input
-                type="password"
-                value={destinationForm.pin_password}
-                onChange={(e) => setDestinationForm({ ...destinationForm, pin_password: e.target.value })}
-                placeholder="Enter 4-digit PIN"
+                value={destinationForm.address}
+                onChange={(e) => setDestinationForm({ ...destinationForm, address: e.target.value })}
+                placeholder="Enter full address (Google Maps searchable)"
               />
             </div>
             <Button onClick={createOrUpdateDestination} className="w-full">

@@ -184,6 +184,39 @@ export type Database = {
           },
         ]
       }
+      destinations: {
+        Row: {
+          created_at: string
+          email: string | null
+          phone: string | null
+          pin_password: string
+          id: string
+          name: string
+          updated_at: string
+          address: string | null
+        }
+        Insert: {
+          created_at?: string
+          email?: string | null
+          phone?: string | null
+          pin_password?: string
+          id?: string
+          name: string
+          updated_at?: string
+          address?: string | null
+        }
+        Update: {
+          created_at?: string
+          email?: string | null
+          phone?: string | null
+          pin_password?: string
+          id?: string
+          name?: string
+          updated_at?: string
+          address?: string | null
+        }
+        Relationships: []
+      }
       crew_members: {
         Row: {
           id: string

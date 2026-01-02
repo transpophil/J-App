@@ -32,6 +32,10 @@ export default function Dashboard() {
   const [tripMode, setTripMode] = useState<"pickup" | "travel">("pickup");
   const [hasNewTasks, setHasNewTasks] = useState(false);
 
+  // ADDED: destinations and selected destination state
+  const [destinations, setDestinations] = useState<any[]>([]);
+  const [selectedDestination, setSelectedDestination] = useState<string>("");
+
   // Subscribe to realtime updates for tasks
   useEffect(() => {
     if (!currentDriver) {
@@ -90,6 +94,15 @@ export default function Dashboard() {
       .from("passengers")
       .select("*")
       .order("name");
+
+    // ADDED: Load destinations
+    const { data: destinationsData } = await supabase
+      .from("destinations")
+      .select("id, name, address")
+      .order("name");
+
+    setDestinations(destinationsData || []);
+
     // Apply saved order (unchanged)
     let orderedPassengers = passengersData || [];
     const { data: orderSetting } = await supabase
@@ -168,6 +181,16 @@ export default function Dashboard() {
       toast({ title: "Please set ETA", variant: "destructive" });
       return;
     }
+    if (!selectedDestination) {
+      toast({ title: "Please select a destination", variant: "destructive" });
+      return;
+    }
+
+    const destinationObj = destinations.find((d) => d.id === selectedDestination);
+    if (!destinationObj || !destinationObj.address) {
+      toast({ title: "Invalid destination selected", variant: "destructive" });
+      return;
+    }
 
     const selectedPassengerData = passengers.filter(p => selectedPassengers.includes(p.id));
     if (selectedPassengerData.length === 0) {
@@ -191,7 +214,7 @@ export default function Dashboard() {
     const taskData = {
       passenger_name: finalPassengerNames,
       pickup_location: finalPickupLocations,
-      dropoff_location: finalPickupLocations,
+      dropoff_location: destinationObj.address, // UPDATED: end at chosen destination
       status: "on_board",
       driver_id: currentDriver.id,
       eta: eta,
@@ -365,22 +388,24 @@ export default function Dashboard() {
     navigate("/login");
   }
 
-  // Function to open Google Maps with route
-  function openGoogleMapsRoute() {
+  // ADDED: Open route including selected destination and passenger waypoints
+  function openRouteToDestination() {
     if (selectedPassengers.length === 0) {
-      toast({ title: "Bitte zuerst Passagiere auswählen", variant: "destructive" });
+      toast({ title: "Please select passengers first", variant: "destructive" });
       return;
     }
-    // Orte in der Reihenfolge der Auswahl bestimmen
+    const destinationObj = destinations.find((d) => d.id === selectedDestination);
+    if (!destinationObj || !destinationObj.address) {
+      toast({ title: "Please select a destination", variant: "destructive" });
+      return;
+    }
+
     const orderedLocations = selectedPassengers
       .map((id) => passengers.find((p) => p.id === id)?.default_pickup_location)
       .filter((loc): loc is string => Boolean(loc));
-    if (orderedLocations.length === 0) {
-      toast({ title: "Keine Passagiere ausgewählt", variant: "destructive" });
-      return;
-    }
-    const destination = orderedLocations[orderedLocations.length - 1];
-    const waypointList = orderedLocations.slice(0, -1);
+
+    const destination = destinationObj.address;
+    const waypointList = orderedLocations;
 
     const isIOS = /iPhone|iPad|iPod/i.test(navigator.userAgent);
     const isAndroid = /Android/i.test(navigator.userAgent);
@@ -396,16 +421,13 @@ export default function Dashboard() {
     };
 
     const tryDeepLink = (origin?: string) => {
-      // iOS: Google Maps App Deep Link
       if (isIOS) {
-        // iOS unterstützt mehrere Stopps über daddr mit "+to:"-Ketten
         const daddrChain = (waypointList.length > 0 ? [...waypointList, destination] : [destination])
           .map((addr) => encodeURIComponent(addr))
           .join("+to:");
         const deepUrl =
           `comgooglemaps://?directionsmode=driving&daddr=${daddrChain}` +
           (origin ? `&saddr=${encodeURIComponent(origin)}` : "");
-        // Fallback nach kurzer Zeit zur Web-Route
         const fallbackUrl = buildWebUrl(origin);
         window.location.href = deepUrl;
         setTimeout(() => {
@@ -413,27 +435,23 @@ export default function Dashboard() {
         }, 800);
         return;
       }
-      // Android: Verwende die Web-URL mit waypoints; öffnet i. d. R. die App
       if (isAndroid) {
         window.location.href = buildWebUrl(origin);
         return;
       }
-      // Desktop/sonstige: direkt Web-Route
       window.location.href = buildWebUrl(origin);
     };
 
-    // Startpunkt mit aktueller Position, wenn möglich
     if (navigator.geolocation) {
       navigator.geolocation.getCurrentPosition(
         (pos) => {
-          const { latitude, longitude } = pos.coords;
-          const origin = `${latitude},${longitude}`;
+          const origin = `${pos.coords.latitude},${pos.coords.longitude}`;
           tryDeepLink(origin);
         },
         () => {
           toast({
-            title: "Standortzugriff verweigert",
-            description: "Route wird ohne festen Startpunkt geöffnet.",
+            title: "Location access denied",
+            description: "Opening route without a fixed start point.",
           });
           tryDeepLink(undefined);
         },
@@ -554,7 +572,7 @@ export default function Dashboard() {
                         <Button 
                           className="w-full" 
                           variant="outline"
-                          onClick={openGoogleMapsRoute}
+                          onClick={openRouteToDestination}
                         >
                           <Navigation className="mr-2 h-5 w-5" />
                           View Route in Google Maps
@@ -722,13 +740,28 @@ export default function Dashboard() {
           </TabsContent>
         </Tabs>
 
-      {/* ETA Input Dialog */}
+      {/* ETA Input Dialog updated to include Destination selection and route preview */}
       <Dialog open={showEtaDialog} onOpenChange={setShowEtaDialog}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
-            <DialogTitle>Enter ETA (HH:MM)</DialogTitle>
+            <DialogTitle>Enter ETA & Destination</DialogTitle>
           </DialogHeader>
           <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label>Destination *</Label>
+              <Select value={selectedDestination} onValueChange={setSelectedDestination}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Choose destination" />
+                </SelectTrigger>
+                <SelectContent>
+                  {destinations.map((d) => (
+                    <SelectItem key={d.id} value={d.id}>
+                      {d.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
             <div className="space-y-2">
               <Label>Select Time</Label>
               <TimeWheel value={eta} onChange={setEta} />
@@ -744,6 +777,16 @@ export default function Dashboard() {
                 Send
               </Button>
             </div>
+            {selectedDestination && (
+              <Button 
+                className="w-full mt-2" 
+                variant="outline"
+                onClick={openRouteToDestination}
+              >
+                <Navigation className="mr-2 h-4 w-4" />
+                View Route in Google Maps
+              </Button>
+            )}
           </div>
         </DialogContent>
       </Dialog>
