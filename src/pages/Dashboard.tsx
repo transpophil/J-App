@@ -265,7 +265,7 @@ export default function Dashboard() {
         .insert([{
           driver_id: currentDriver.id,
           address: meetingLocation.trim(),
-          name: "Meeting location",
+          name: "Destination",
         }]);
     }
 
@@ -580,7 +580,7 @@ export default function Dashboard() {
                         ))}
                       </div>
                       <div className="space-y-2 pt-2">
-                        <Label>Meeting Location (optional)</Label>
+                        <Label>Destination (optional)</Label>
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                           <Select
                             onValueChange={(id) => {
@@ -589,7 +589,7 @@ export default function Dashboard() {
                             }}
                           >
                             <SelectTrigger>
-                              <SelectValue placeholder="Choose saved location" />
+                              <SelectValue placeholder="Choose saved destination" />
                             </SelectTrigger>
                             <SelectContent>
                               {savedLocations.map((loc: any) => (
@@ -602,7 +602,7 @@ export default function Dashboard() {
                           <Input
                             value={meetingLocation}
                             onChange={(e) => setMeetingLocation(e.target.value)}
-                            placeholder="Enter meeting address"
+                            placeholder="Enter destination address"
                           />
                         </div>
                         <div className="flex items-center space-x-2">
@@ -612,7 +612,7 @@ export default function Dashboard() {
                             onCheckedChange={(v) => setSaveMeetingLocation(Boolean(v))}
                           />
                           <Label htmlFor="saveMeetingLocation" className="text-sm text-muted-foreground">
-                            Save this location for future
+                            Save this destination for future
                           </Label>
                         </div>
                       </div>

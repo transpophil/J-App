@@ -13,6 +13,7 @@ import { useToast } from "@/hooks/use-toast";
 import { ArrowLeft, Plus, Trash2, Edit } from "lucide-react";
 import logo from "@/assets/j-app-logo.jpg";
 import PassengerSortable from "@/components/PassengerSortable";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 export default function Admin() {
   const navigate = useNavigate();
@@ -27,9 +28,11 @@ export default function Admin() {
   const [showTaskDialog, setShowTaskDialog] = useState(false);
   const [showDriverDialog, setShowDriverDialog] = useState(false);
   const [showPassengerDialog, setShowPassengerDialog] = useState(false);
+  const [showDestinationDialog, setShowDestinationDialog] = useState(false);
   const [editingTask, setEditingTask] = useState<any>(null);
   const [editingDriver, setEditingDriver] = useState<any>(null);
   const [editingPassenger, setEditingPassenger] = useState<any>(null);
+  const [editingDestination, setEditingDestination] = useState<any>(null);
   const [taskForm, setTaskForm] = useState({
     passenger_name: "",
     pickup_location: "",
@@ -48,6 +51,7 @@ export default function Admin() {
     name: "",
     default_pickup_location: "",
   });
+  const [destinations, setDestinations] = useState<any[]>([]);
 
   useEffect(() => {
     if (isAuthenticated) {
@@ -100,7 +104,13 @@ export default function Admin() {
     }
     setPassengers(orderedPassengers);
     setTemplates(templatesRes.data || []);
-
+    
+    // Load destinations (locations)
+    const { data: destinationsRes } = await supabase
+      .from("locations")
+      .select("*")
+      .order("updated_at", { ascending: false });
+    setDestinations(destinationsRes || []);
   }
 
   async function createOrUpdateTask() {
@@ -396,6 +406,52 @@ export default function Admin() {
     toast({ title: "Passenger order saved" });
   }
 
+  async function createOrUpdateDestination() {
+    const { driver_id, name, address } = destinationForm;
+    if (!driver_id || !address.trim()) {
+      toast({ title: "Driver and address are required", variant: "destructive" });
+      return;
+    }
+
+    if (editingDestination) {
+      const { error } = await supabase
+        .from("locations")
+        .update({ driver_id, name: name || null, address: address.trim() })
+        .eq("id", editingDestination.id);
+
+      if (error) {
+        toast({ title: "Failed to update destination", variant: "destructive" });
+        return;
+      }
+      toast({ title: "Destination updated" });
+    } else {
+      const { error } = await supabase
+        .from("locations")
+        .insert([{ driver_id, name: name || null, address: address.trim() }]);
+
+      if (error) {
+        toast({ title: "Failed to create destination", variant: "destructive" });
+        return;
+      }
+      toast({ title: "Destination created" });
+    }
+
+    setShowDestinationDialog(false);
+    setEditingDestination(null);
+    setDestinationForm({ driver_id: "", name: "", address: "" });
+    loadData();
+  }
+
+  async function deleteDestination(id: string) {
+    const { error } = await supabase.from("locations").delete().eq("id", id);
+    if (error) {
+      toast({ title: "Failed to delete destination", variant: "destructive" });
+      return;
+    }
+    toast({ title: "Destination deleted" });
+    loadData();
+  }
+
   if (!isAuthenticated) {
     return (
       <div className="min-h-screen flex items-center justify-center p-4 bg-gradient-to-br from-background via-muted/20 to-background">
@@ -448,12 +504,13 @@ export default function Admin() {
 
       <div className="container mx-auto px-4 py-8 max-w-5xl">
         <Tabs defaultValue="tasks" className="space-y-6">
-          <TabsList className="grid w-full grid-cols-5 gap-1">
+          <TabsList className="grid w-full grid-cols-6 gap-1">
             <TabsTrigger value="tasks" className="text-xs sm:text-sm">Tasks</TabsTrigger>
             <TabsTrigger value="drivers" className="text-xs sm:text-sm">Drivers</TabsTrigger>
             <TabsTrigger value="passengers" className="text-xs sm:text-sm">Passengers</TabsTrigger>
             <TabsTrigger value="templates" className="text-xs sm:text-sm">Templates</TabsTrigger>
             <TabsTrigger value="settings" className="text-xs sm:text-sm">Settings</TabsTrigger>
+            <TabsTrigger value="destinations" className="text-xs sm:text-sm">Destinations</TabsTrigger>
           </TabsList>
 
           <TabsContent value="tasks" className="space-y-6">
@@ -770,6 +827,62 @@ export default function Admin() {
               <Button onClick={updateSettings}>Save Settings</Button>
             </Card>
           </TabsContent>
+
+          <TabsContent value="destinations" className="space-y-4">
+            <div className="flex justify-between items-center">
+              <h2 className="text-2xl font-bold">Manage Destinations</h2>
+              <Button
+                onClick={() => {
+                  setEditingDestination(null);
+                  setDestinationForm({ driver_id: "", name: "", address: "" });
+                  setShowDestinationDialog(true);
+                }}
+              >
+                <Plus className="mr-2 h-4 w-4" />
+                Add Destination
+              </Button>
+            </div>
+            <div className="space-y-3">
+              {destinations.map((loc) => {
+                const driver = drivers.find(d => d.id === loc.driver_id);
+                return (
+                  <Card key={loc.id} className="p-4">
+                    <div className="flex justify-between items-start">
+                      <div className="space-y-1">
+                        <h3 className="font-semibold text-lg">{loc.name || "Destination"}</h3>
+                        <p className="text-sm text-muted-foreground">
+                          <span className="font-medium">Address:</span> {loc.address}
+                        </p>
+                        <p className="text-sm text-muted-foreground">
+                          <span className="font-medium">Driver:</span> {driver?.name || "Unknown"}
+                        </p>
+                      </div>
+                      <div className="flex gap-2">
+                        <Button
+                          size="icon"
+                          variant="outline"
+                          onClick={() => {
+                            setEditingDestination(loc);
+                            setDestinationForm({
+                              driver_id: loc.driver_id || "",
+                              name: loc.name || "",
+                              address: loc.address || "",
+                            });
+                            setShowDestinationDialog(true);
+                          }}
+                        >
+                          <Edit className="h-4 w-4" />
+                        </Button>
+                        <Button size="icon" variant="destructive" onClick={() => deleteDestination(loc.id)}>
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    </div>
+                  </Card>
+                );
+              })}
+            </div>
+          </TabsContent>
         </Tabs>
       </div>
 
@@ -906,6 +1019,53 @@ export default function Admin() {
             </div>
             <Button onClick={createOrUpdatePassenger} className="w-full">
               {editingPassenger ? "Update Passenger" : "Add Passenger"}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={showDestinationDialog} onOpenChange={setShowDestinationDialog}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle>{editingDestination ? "Edit Destination" : "Add New Destination"}</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div>
+              <Label>Driver *</Label>
+              <Select
+                value={destinationForm.driver_id}
+                onValueChange={(v) => setDestinationForm({ ...destinationForm, driver_id: v })}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Choose driver" />
+                </SelectTrigger>
+                <SelectContent>
+                  {drivers.map((d) => (
+                    <SelectItem key={d.id} value={d.id}>
+                      {d.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <Label>Name</Label>
+              <Input
+                value={destinationForm.name}
+                onChange={(e) => setDestinationForm({ ...destinationForm, name: e.target.value })}
+                placeholder="Optional name, e.g., Home"
+              />
+            </div>
+            <div>
+              <Label>Address *</Label>
+              <Input
+                value={destinationForm.address}
+                onChange={(e) => setDestinationForm({ ...destinationForm, address: e.target.value })}
+                placeholder="Enter destination address"
+              />
+            </div>
+            <Button onClick={createOrUpdateDestination} className="w-full">
+              {editingDestination ? "Update Destination" : "Add Destination"}
             </Button>
           </div>
         </DialogContent>
