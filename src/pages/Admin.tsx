@@ -63,6 +63,22 @@ export default function Admin() {
     }
   }, [isAuthenticated]);
 
+  // ADD: Realtime subscription to keep Admin tasks in sync
+  useEffect(() => {
+    if (!isAuthenticated) return;
+
+    const channel = supabase
+      .channel("admin_tasks")
+      .on("postgres_changes", { event: "*", schema: "public", table: "tasks" }, () => {
+        loadData();
+      })
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [isAuthenticated]);
+
   async function checkPasskey() {
     const { data } = await supabase.from("app_settings").select("setting_value").eq("setting_key", "admin_passkey").single();
 
@@ -181,10 +197,12 @@ export default function Admin() {
       toast({ title: "Task created" });
     }
 
+    // Ensure immediate refresh so the new task appears in Active Tasks
+    await loadData();
+
     setShowTaskDialog(false);
     setEditingTask(null);
     setTaskForm({ passenger_name: "", pickup_location: "", dropoff_location: "", task_name: "", notes: "", deadline: "" });
-    loadData();
   }
 
   async function deleteTask(id: string) {
