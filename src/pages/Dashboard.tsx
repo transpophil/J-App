@@ -753,50 +753,46 @@ export default function Dashboard() {
                       </div>
                     </div>
 
-                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                      <div className="w-1/2 sm:w-1/3">
-                        <Button
-                          className="w-full h-24 flex flex-col items-center justify-center text-center gap-1"
-                          size="lg"
-                          onClick={handleFiveMinWarning}
-                          disabled={selectedPassengers.length === 0 || currentTask?.five_min_warning_sent_at != null}
-                        >
-                          <Clock className="h-6 w-6" />
-                          <span className="font-semibold leading-tight">
-                            <span className="block">5 Min</span>
-                            <span className="block">Warning</span>
-                          </span>
-                        </Button>
-                      </div>
-                      <div className="w-1/2 sm:w-1/3">
-                        <Button
-                          variant="outline"
-                          className="w-full h-24 flex flex-col items-center justify-center text-center gap-1"
-                          size="lg"
-                          onClick={handleAddPickup}
-                        >
-                          <MapPin className="h-6 w-6" />
-                          <span className="font-semibold leading-tight">
-                            <span className="block">Add</span>
-                            <span className="block">Pickup</span>
-                          </span>
-                        </Button>
-                      </div>
-                      <div className="w-1/2 sm:w-1/3">
-                        <Button
-                          variant="default"
-                          className="w-full h-24 flex flex-col items-center justify-center text-center gap-1"
-                          size="lg"
-                          onClick={handleDropOff}
-                          disabled={selectedPassengers.length === 0}
-                        >
-                          <CheckCircle2 className="h-6 w-6" />
-                          <span className="font-semibold leading-tight">
-                            <span className="block">Drop</span>
-                            <span className="block">Off</span>
-                          </span>
-                        </Button>
-                      </div>
+                    <div className="grid grid-cols-2 gap-4">
+                      <Button
+                        className="w-full h-24 flex flex-col items-center justify-center text-center gap-1"
+                        size="lg"
+                        onClick={handleFiveMinWarning}
+                        disabled={selectedPassengers.length === 0 || currentTask?.five_min_warning_sent_at != null}
+                      >
+                        <Clock className="h-6 w-6" />
+                        <span className="font-semibold leading-tight">
+                          <span className="block">5 Min</span>
+                          <span className="block">Warning</span>
+                        </span>
+                      </Button>
+
+                      <Button
+                        variant="default"
+                        className="w-full h-24 flex flex-col items-center justify-center text-center gap-1"
+                        size="lg"
+                        onClick={handleDropOff}
+                        disabled={selectedPassengers.length === 0}
+                      >
+                        <CheckCircle2 className="h-6 w-6" />
+                        <span className="font-semibold leading-tight">
+                          <span className="block">Drop</span>
+                          <span className="block">Off</span>
+                        </span>
+                      </Button>
+
+                      <Button
+                        variant="outline"
+                        className="col-span-2 w-full h-24 flex flex-col items-center justify-center text-center gap-1"
+                        size="lg"
+                        onClick={handleAddPickup}
+                      >
+                        <MapPin className="h-6 w-6" />
+                        <span className="font-semibold leading-tight">
+                          <span className="block">Add</span>
+                          <span className="block">Pickup</span>
+                        </span>
+                      </Button>
                     </div>
 
                     {currentTask?.five_min_warning_sent_at && (
