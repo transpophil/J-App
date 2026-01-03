@@ -99,11 +99,7 @@ export default function Admin() {
 
     if (destinationsRes.error) {
       console.error("Destinations load error:", destinationsRes.error);
-      toast({ 
-        title: "Destinations unavailable", 
-        description: destinationsRes.error.message, 
-        variant: "destructive" 
-      });
+      // Suppress toast so Admin stays usable if the table hasn't been created yet
     }
 
     setDrivers(driversRes.data || []);
@@ -798,35 +794,41 @@ export default function Admin() {
               </Button>
             </div>
             <div className="space-y-3">
-              {destinations.map((destination) => (
-                <Card key={destination.id} className="p-4">
-                  <div className="flex justify-between items-center">
-                    <div>
-                      <h3 className="font-semibold text-lg">{destination.name}</h3>
-                      <p className="text-sm text-muted-foreground">{destination.address || "No address"}</p>
-                    </div>
-                    <div className="flex gap-2">
-                      <Button
-                        size="icon"
-                        variant="outline"
-                        onClick={() => {
-                          setEditingDestination(destination);
-                          setDestinationForm({
-                            name: destination.name,
-                            address: destination.address || "",
-                          });
-                          setShowDestinationDialog(true);
-                        }}
-                      >
-                        <Edit className="h-4 w-4" />
-                      </Button>
-                      <Button size="icon" variant="destructive" onClick={() => deleteDestination(destination.id)}>
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
-                    </div>
-                  </div>
+              {destinations.length === 0 ? (
+                <Card className="p-6 text-center text-muted-foreground">
+                  No destinations yet. Use "Add Destination" to create one.
                 </Card>
-              ))}
+              ) : (
+                destinations.map((destination) => (
+                  <Card key={destination.id} className="p-4">
+                    <div className="flex justify-between items-center">
+                      <div>
+                        <h3 className="font-semibold text-lg">{destination.name}</h3>
+                        <p className="text-sm text-muted-foreground">{destination.address || "No address"}</p>
+                      </div>
+                      <div className="flex gap-2">
+                        <Button
+                          size="icon"
+                          variant="outline"
+                          onClick={() => {
+                            setEditingDestination(destination);
+                            setDestinationForm({
+                              name: destination.name,
+                              address: destination.address || "",
+                            });
+                            setShowDestinationDialog(true);
+                          }}
+                        >
+                          <Edit className="h-4 w-4" />
+                        </Button>
+                        <Button size="icon" variant="destructive" onClick={() => deleteDestination(destination.id)}>
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    </div>
+                  </Card>
+                ))
+              )}
             </div>
           </TabsContent>
 

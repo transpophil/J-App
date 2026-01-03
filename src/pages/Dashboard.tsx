@@ -17,6 +17,7 @@ import TasksBoard from "@/components/TasksBoard";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import logo from "@/assets/j-app-logo.jpg";
 import backgroundImage from "@/assets/background-image.png";
+import { Input } from "@/components/ui/input";
 
 export default function Dashboard() {
   const navigate = useNavigate();
@@ -35,6 +36,8 @@ export default function Dashboard() {
   // ADDED: destinations and selected destination state
   const [destinations, setDestinations] = useState<any[]>([]);
   const [selectedDestination, setSelectedDestination] = useState<string>("");
+  // ADD: free text destination
+  const [freeDestination, setFreeDestination] = useState<string>("");
 
   // Subscribe to realtime updates for tasks
   useEffect(() => {
@@ -165,6 +168,9 @@ export default function Dashboard() {
       setDelayPassenger("");
       setShowDelaySelection(false);
       setShowEtaDialog(false);
+      // RESET: destination selections
+      setSelectedDestination("");
+      setFreeDestination("");
     }
   }
 
@@ -181,15 +187,23 @@ export default function Dashboard() {
       toast({ title: "Please set ETA", variant: "destructive" });
       return;
     }
-    if (!selectedDestination) {
-      toast({ title: "Please select a destination", variant: "destructive" });
+
+    // VALIDATE: require either selected destination or free-text destination
+    if (!selectedDestination && !freeDestination.trim()) {
+      toast({ title: "Please select or enter a destination", variant: "destructive" });
       return;
     }
 
-    const destinationObj = destinations.find((d) => d.id === selectedDestination);
-    if (!destinationObj || !destinationObj.address) {
-      toast({ title: "Invalid destination selected", variant: "destructive" });
-      return;
+    let destinationAddress = "";
+    if (selectedDestination) {
+      const destinationObj = destinations.find((d) => d.id === selectedDestination);
+      if (!destinationObj || !destinationObj.address) {
+        toast({ title: "Invalid destination selected", variant: "destructive" });
+        return;
+      }
+      destinationAddress = destinationObj.address;
+    } else {
+      destinationAddress = freeDestination.trim();
     }
 
     const selectedPassengerData = passengers.filter(p => selectedPassengers.includes(p.id));
@@ -214,7 +228,7 @@ export default function Dashboard() {
     const taskData = {
       passenger_name: finalPassengerNames,
       pickup_location: finalPickupLocations,
-      dropoff_location: destinationObj.address, // UPDATED: end at chosen destination
+      dropoff_location: destinationAddress, // use selected or free-text destination
       status: "on_board",
       driver_id: currentDriver.id,
       eta: eta,
@@ -388,15 +402,30 @@ export default function Dashboard() {
     navigate("/login");
   }
 
-  // ADDED: Open route including selected destination and passenger waypoints
+  // ADDED: Open route including selected destination or free-text and passenger waypoints
   function openRouteToDestination() {
     if (selectedPassengers.length === 0) {
       toast({ title: "Please select passengers first", variant: "destructive" });
       return;
     }
-    const destinationObj = destinations.find((d) => d.id === selectedDestination);
-    if (!destinationObj || !destinationObj.address) {
-      toast({ title: "Please select a destination", variant: "destructive" });
+
+    // Determine destination address from selection or free text
+    let destination = "";
+    if (selectedDestination) {
+      const destinationObj = destinations.find((d) => d.id === selectedDestination);
+      if (!destinationObj || !destinationObj.address) {
+        toast({ title: "Invalid destination selected", variant: "destructive" });
+        return;
+      }
+      destination = destinationObj.address;
+    } else if (freeDestination.trim()) {
+      destination = freeDestination.trim();
+    } else {
+      toast({
+        title: "Destination needed",
+        description: "Open the Let's Go dialog to select or type a destination.",
+        variant: "destructive",
+      });
       return;
     }
 
@@ -404,7 +433,6 @@ export default function Dashboard() {
       .map((id) => passengers.find((p) => p.id === id)?.default_pickup_location)
       .filter((loc): loc is string => Boolean(loc));
 
-    const destination = destinationObj.address;
     const waypointList = orderedLocations;
 
     const isIOS = /iPhone|iPad|iPod/i.test(navigator.userAgent);
@@ -749,18 +777,26 @@ export default function Dashboard() {
           <div className="space-y-4 py-4">
             <div className="space-y-2">
               <Label>Destination *</Label>
-              <Select value={selectedDestination} onValueChange={setSelectedDestination}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Choose destination" />
-                </SelectTrigger>
-                <SelectContent>
-                  {destinations.map((d) => (
-                    <SelectItem key={d.id} value={d.id}>
-                      {d.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              {destinations.length > 0 ? (
+                <Select value={selectedDestination} onValueChange={setSelectedDestination}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Choose destination" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {destinations.map((d) => (
+                      <SelectItem key={d.id} value={d.id}>
+                        {d.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              ) : (
+                <Input
+                  value={freeDestination}
+                  onChange={(e) => setFreeDestination(e.target.value)}
+                  placeholder="Type destination address"
+                />
+              )}
             </div>
             <div className="space-y-2">
               <Label>Select Time</Label>
@@ -777,7 +813,7 @@ export default function Dashboard() {
                 Send
               </Button>
             </div>
-            {selectedDestination && (
+            {(selectedDestination || freeDestination.trim()) && (
               <Button 
                 className="w-full mt-2" 
                 variant="outline"
