@@ -1,4 +1,3 @@
-ETA, ETA -> Pickup, and show Back controls.">
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useDriver } from "@/contexts/DriverContext";
