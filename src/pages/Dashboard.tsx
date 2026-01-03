@@ -428,7 +428,7 @@ export default function Dashboard() {
     navigate("/login");
   }
 
-  // ADDED: Open route including selected destination or free-text and passenger waypoints
+  // Open route including selected destination or free-text and passenger waypoints
   function openRouteToDestination() {
     if (selectedPassengers.length === 0) {
       toast({ title: "Please select passengers first", variant: "destructive" });
@@ -470,40 +470,38 @@ export default function Dashboard() {
       );
     };
 
-    // OPEN SYNCHRONOUSLY to avoid popup blockers
-    const tab = window.open("about:blank", "_blank", "noopener,noreferrer");
-    const navigateTo = (origin?: string) => {
-      const url = buildWebUrl(origin);
-      if (tab) {
-        tab.location.href = url;
-      } else {
-        // Fallback: open in same tab if popup blocked
-        toast({
-          title: "Popup blocked",
-          description: "Opening route in the current tab.",
-          variant: "destructive",
-        });
-        window.location.href = url;
-      }
-    };
+    // Synchronously open Google Maps immediately (without origin) to avoid popup blocking
+    const initialUrl = buildWebUrl(undefined);
+    const tab = window.open(initialUrl, "_blank");
 
+    // If popup was blocked, open in current tab as a fallback
+    if (!tab) {
+      toast({
+        title: "Popup blocked",
+        description: "Opening route in the current tab.",
+        variant: "destructive",
+      });
+      window.location.href = initialUrl;
+      return;
+    }
+
+    // Then try to enhance with precise origin if available
     if (navigator.geolocation) {
       navigator.geolocation.getCurrentPosition(
         (pos) => {
           const origin = `${pos.coords.latitude},${pos.coords.longitude}`;
-          navigateTo(origin);
+          const urlWithOrigin = buildWebUrl(origin);
+          tab.location.href = urlWithOrigin;
         },
         () => {
+          // If denied, keep the already-opened tab with initial URL
           toast({
             title: "Location access denied",
-            description: "Opening route without a fixed start point.",
+            description: "Opened route without a fixed start point.",
           });
-          navigateTo(undefined);
         },
         { enableHighAccuracy: true, timeout: 8000, maximumAge: 0 }
       );
-    } else {
-      navigateTo(undefined);
     }
   }
 
