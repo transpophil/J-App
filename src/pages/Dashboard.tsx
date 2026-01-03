@@ -200,6 +200,11 @@ export default function Dashboard() {
       toast({ title: "Please select at least one passenger", variant: "destructive" });
       return;
     }
+    // NEW: require a destination before proceeding to ETA
+    if (!selectedDestination && !freeDestination.trim()) {
+      toast({ title: "Please select or enter a destination", variant: "destructive" });
+      return;
+    }
     setShowEtaDialog(true);
   }
 
@@ -576,7 +581,7 @@ export default function Dashboard() {
                       ) : (
                         <>
                           <h2 className="text-2xl font-bold text-foreground mb-2">Start Trip</h2>
-                          <p className="text-muted-foreground">Select passengers and press Let's Go</p>
+                          <p className="text-muted-foreground">Select passengers and destination, preview route, then press Let's Go</p>
                         </>
                       )}
                     </div>
@@ -615,7 +620,31 @@ export default function Dashboard() {
                     </div>
 
                     <div className="space-y-3">
-                      {selectedPassengers.length > 0 && (
+                      <Label>Destination *</Label>
+                      {destinations.length > 0 ? (
+                        <Select value={selectedDestination} onValueChange={setSelectedDestination}>
+                          <SelectTrigger>
+                            <SelectValue placeholder="Choose destination" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {destinations.map((d) => (
+                              <SelectItem key={d.id} value={d.id}>
+                                {d.name}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      ) : (
+                        <Input
+                          value={freeDestination}
+                          onChange={(e) => setFreeDestination(e.target.value)}
+                          placeholder="Type destination address"
+                        />
+                      )}
+                    </div>
+
+                    <div className="space-y-3">
+                      {selectedPassengers.length > 0 && (selectedDestination || freeDestination.trim()) && (
                         <Button 
                           className="w-full" 
                           variant="outline"
@@ -787,36 +816,13 @@ export default function Dashboard() {
           </TabsContent>
         </Tabs>
 
-      {/* ETA Input Dialog updated: change Cancel label to Back */}
+      {/* ETA Input Dialog simplified: only time input now */}
       <Dialog open={showEtaDialog} onOpenChange={setShowEtaDialog}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
-            <DialogTitle>Enter ETA & Destination</DialogTitle>
+            <DialogTitle>Enter ETA</DialogTitle>
           </DialogHeader>
           <div className="space-y-4 py-4">
-            <div className="space-y-2">
-              <Label>Destination *</Label>
-              {destinations.length > 0 ? (
-                <Select value={selectedDestination} onValueChange={setSelectedDestination}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Choose destination" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {destinations.map((d) => (
-                      <SelectItem key={d.id} value={d.id}>
-                        {d.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              ) : (
-                <Input
-                  value={freeDestination}
-                  onChange={(e) => setFreeDestination(e.target.value)}
-                  placeholder="Type destination address"
-                />
-              )}
-            </div>
             <div className="space-y-2">
               <Label>Select Time</Label>
               <TimeWheel value={eta} onChange={setEta} />
@@ -833,16 +839,6 @@ export default function Dashboard() {
                 Send
               </Button>
             </div>
-            {(selectedDestination || freeDestination.trim()) && (
-              <Button 
-                className="w-full mt-2" 
-                variant="outline"
-                onClick={openRouteToDestination}
-              >
-                <Navigation className="mr-2 h-4 w-4" />
-                View Route in Google Maps
-              </Button>
-            )}
           </div>
         </DialogContent>
       </Dialog>
