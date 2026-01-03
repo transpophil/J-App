@@ -16,7 +16,7 @@ import { TaskSection } from "@/components/TaskSection";
 import TasksBoard from "@/components/TasksBoard";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import logo from "@/assets/j-app-logo.jpg";
-import backgroundImage from "@/assets/background-image.png";
+import backgroundImage from "@/assets/app-background.png";
 import { Input } from "@/components/ui/input";
 
 export default function Dashboard() {

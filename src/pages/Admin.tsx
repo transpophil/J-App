@@ -132,7 +132,8 @@ export default function Admin() {
 
   async function createOrUpdateTask() {
     const { passenger_name, pickup_location, dropoff_location, task_name, notes, deadline } = taskForm;
-    if (!task_name) {
+    const cleanTaskName = (task_name || "").trim();
+    if (!cleanTaskName) {
       toast({ title: "Please fill Task Name", variant: "destructive" });
       return;
     }
@@ -149,7 +150,7 @@ export default function Admin() {
           passenger_name: passenger || "",
           pickup_location: pickup || "",
           dropoff_location: dropoff || "",
-          task_name,
+          task_name: cleanTaskName,
           notes: cleanedNotes || null,
           eta: deadline || null
         })
@@ -167,7 +168,7 @@ export default function Admin() {
           passenger_name: passenger || "",
           pickup_location: pickup || "",
           dropoff_location: dropoff || "",
-          task_name,
+          task_name: cleanTaskName,
           notes: cleanedNotes || null,
           eta: deadline || null,
           status: "available"
