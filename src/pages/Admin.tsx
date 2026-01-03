@@ -680,11 +680,6 @@ export default function Admin() {
                               <span className="font-medium text-foreground">Passenger:</span> {task.passenger_name}
                             </p>
                           )}
-                          {task.pickup_location && (
-                            <p className="text-sm text-muted-foreground">
-                              <span className="font-medium text-foreground">From:</span> {task.pickup_location}
-                            </p>
-                          )}
                           {task.dropoff_location && (
                             <p className="text-sm text-muted-foreground">
                               <span className="font-medium text-foreground">To:</span> {task.dropoff_location}
