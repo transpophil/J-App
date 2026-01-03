@@ -307,6 +307,7 @@ export default function Dashboard() {
       driver: currentDriver.name,
       passenger: passengerNames,
       eta: eta,
+      location: destinationAddress,
     });
 
     toast({ title: "Trip started! Message sent to group." });
@@ -405,6 +406,7 @@ export default function Dashboard() {
       await sendTelegramTemplate("drop_off", {
         driver: currentDriver.name,
         passenger: droppedPassengerNames,
+        location: currentTask?.dropoff_location ?? undefined,
       });
 
       toast({ title: "All passengers dropped off! Trip completed." });
