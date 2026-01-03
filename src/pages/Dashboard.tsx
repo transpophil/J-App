@@ -363,9 +363,17 @@ export default function Dashboard() {
       return;
     }
 
+    // Determine destination NAME for the message (use saved destination name if address matches)
+    const dropoffAddress = currentTask?.dropoff_location;
+    const matchedDest = dropoffAddress
+      ? destinations.find((d) => d.address === dropoffAddress)
+      : undefined;
+    const dropoffName = matchedDest ? matchedDest.name : dropoffAddress;
+
     await sendTelegramTemplate("five_min_warning", {
       driver: currentDriver.name,
       passenger: currentTask.passenger_name,
+      location: dropoffName ?? undefined,
     });
 
     toast({ title: "5-minute warning sent to group." });
