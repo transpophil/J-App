@@ -1,0 +1,12 @@
+Snapshot Name: NEW_A_Version
+Timestamp: 2026-01-03T00:00:00.000Z
+
+Notes:
+- This file marks the codebase state as "NEW_A_Version".
+- Use this snapshot name when referring back to this stable point.
+- Key updated files in this session:
+  - src/utils/maps.ts (route opens without leaving dashboard; better waypoint handling)
+  - src/pages/Admin.tsx (admin tabs render in two rows on small screens)
+
+Reference:
+- See IMPLEMENTATION_SUMMARY.md for the full feature set active at this snapshot.
