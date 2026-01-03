@@ -113,50 +113,15 @@ export function TasksBoard() {
     loadTasks();
   }
 
-  // Open Google Maps route with current device position as origin to the task's pickup location
+  // Open Google Maps route immediately (current tab) to the task's pickup location
   function openTaskRoute(destination: string) {
-    const buildWebUrl = (origin?: string) => {
-      return (
-        `https://www.google.com/maps/dir/?api=1` +
-        (origin ? `&origin=${encodeURIComponent(origin)}` : "") +
-        `&destination=${encodeURIComponent(destination)}` +
-        `&travelmode=driving`
-      );
-    };
+    const url =
+      `https://www.google.com/maps/dir/?api=1` +
+      `&destination=${encodeURIComponent(destination)}` +
+      `&travelmode=driving`;
 
-    // Synchronously open Google Maps immediately (without origin) to avoid popup blocking
-    const initialUrl = buildWebUrl(undefined);
-    const tab = window.open(initialUrl, "_blank");
-
-    // If popup was blocked, open in current tab as a fallback
-    if (!tab) {
-      toast({
-        title: "Popup blocked",
-        description: "Opening route in the current tab.",
-        variant: "destructive",
-      });
-      window.location.href = initialUrl;
-      return;
-    }
-
-    // Then try to enhance with precise origin if available
-    if (navigator.geolocation) {
-      navigator.geolocation.getCurrentPosition(
-        (pos) => {
-          const origin = `${pos.coords.latitude},${pos.coords.longitude}`;
-          const urlWithOrigin = buildWebUrl(origin);
-          tab.location.href = urlWithOrigin;
-        },
-        () => {
-          // If denied, keep the already-opened tab with initial URL
-          toast({
-            title: "Location access denied",
-            description: "Opened route without a fixed start point.",
-          });
-        },
-        { enableHighAccuracy: true, timeout: 8000, maximumAge: 0 }
-      );
-    }
+    // Immediate navigation in current tab avoids popup blockers
+    window.location.href = url;
   }
 
   // NEW: Unaccept task (go back from Accepted to Available)
