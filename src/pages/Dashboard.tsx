@@ -1,3 +1,4 @@
+ETA, ETA -> Pickup, and show Back controls.">
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useDriver } from "@/contexts/DriverContext";
@@ -10,7 +11,7 @@ import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
 import { sendTelegramTemplate } from "@/utils/telegram";
-import { LogOut, MapPin, Clock, CheckCircle2, AlertCircle, Navigation } from "lucide-react";
+import { LogOut, MapPin, Clock, CheckCircle2, AlertCircle, Navigation, ArrowLeft } from "lucide-react";
 import { TimeWheel } from "@/components/TimeWheel";
 import { TaskSection } from "@/components/TaskSection";
 import TasksBoard from "@/components/TasksBoard";
@@ -38,6 +39,27 @@ export default function Dashboard() {
   const [selectedDestination, setSelectedDestination] = useState<string>("");
   // ADD: free text destination
   const [freeDestination, setFreeDestination] = useState<string>("");
+
+  // Add a unified Back handler for trip steps
+  function handleBackStep() {
+    // If ETA dialog is open, "Back" goes to passenger selection
+    if (showEtaDialog) {
+      setShowEtaDialog(false);
+      setTripMode("pickup");
+      return;
+    }
+    // If in Travel, "Back" opens ETA dialog with current values prefilled
+    if (tripMode === "travel") {
+      if (currentTask?.eta) setEta(currentTask.eta);
+      if (currentTask?.dropoff_location) {
+        setSelectedDestination(""); // Prefer free-text if previous destination isn't a saved one
+        setFreeDestination(currentTask.dropoff_location);
+      }
+      setShowEtaDialog(true);
+      return;
+    }
+    // If already in Pickup, there's no previous step
+  }
 
   // Subscribe to realtime updates for tasks
   useEffect(() => {
@@ -500,6 +522,17 @@ export default function Dashboard() {
             </div>
           </div>
           <div className="flex gap-2">
+            {/* Global Back control for trip flow */}
+            <Button
+              variant="outline"
+              size="icon"
+              onClick={handleBackStep}
+              disabled={tripMode === "pickup" && !showEtaDialog}
+              className="bg-white/80 hover:bg-white"
+              title={tripMode === "pickup" && !showEtaDialog ? "No previous step" : "Back to previous step"}
+            >
+              <ArrowLeft className="h-5 w-5" />
+            </Button>
             <Button variant="outline" size="icon" onClick={handleLogout} className="bg-white/80 hover:bg-white">
               <LogOut className="h-5 w-5" />
             </Button>
@@ -755,7 +788,7 @@ export default function Dashboard() {
           </TabsContent>
         </Tabs>
 
-      {/* ETA Input Dialog updated to include Destination selection and route preview */}
+      {/* ETA Input Dialog updated: change Cancel label to Back */}
       <Dialog open={showEtaDialog} onOpenChange={setShowEtaDialog}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
@@ -792,9 +825,10 @@ export default function Dashboard() {
             <div className="grid grid-cols-2 gap-3">
               <Button 
                 variant="outline" 
-                onClick={() => setShowEtaDialog(false)}
+                onClick={handleBackStep}
               >
-                Cancel
+                <ArrowLeft className="mr-2 h-4 w-4" />
+                Back
               </Button>
               <Button onClick={handleConfirmTrip}>
                 Send

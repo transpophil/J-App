@@ -8,7 +8,7 @@ import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
-import { CheckCircle2, Clock, User, MapPin, Navigation } from "lucide-react";
+import { CheckCircle2, Clock, User, MapPin, Navigation, ArrowLeft } from "lucide-react";
 
 interface Task {
   id: string;
@@ -154,6 +154,28 @@ export function TasksBoard() {
     } else {
       tryOpen(undefined);
     }
+  }
+
+  // NEW: Unaccept task (go back from Accepted to Available)
+  async function unacceptTask(taskId: string) {
+    if (!currentDriver) return;
+    const { error } = await supabase
+      .from("tasks")
+      .update({
+        status: "available",
+        driver_id: null,
+        accepted_at: null,
+      })
+      .eq("id", taskId)
+      .eq("driver_id", currentDriver.id)
+      .eq("status", "accepted");
+
+    if (error) {
+      toast({ title: "Failed to revert task", description: error.message, variant: "destructive" });
+      return;
+    }
+    toast({ title: "Task reverted to Available." });
+    loadTasks();
   }
 
   return (
@@ -328,10 +350,18 @@ export function TasksBoard() {
                   </div>
 
                   {currentDriver?.id === task.driver_id ? (
-                    <Button className="w-full bg-primary hover:bg-primary/90" onClick={() => markTaskDone(task.id)}>
-                      <CheckCircle2 className="mr-2 h-4 w-4" />
-                      Done
-                    </Button>
+                    <div className="grid grid-cols-2 gap-3">
+                      {task.status === "accepted" && (
+                        <Button variant="outline" onClick={() => unacceptTask(task.id)}>
+                          <ArrowLeft className="mr-2 h-4 w-4" />
+                          Back
+                        </Button>
+                      )}
+                      <Button className="w-full bg-primary hover:bg-primary/90" onClick={() => markTaskDone(task.id)}>
+                        <CheckCircle2 className="mr-2 h-4 w-4" />
+                        Done
+                      </Button>
+                    </div>
                   ) : (
                     <Button className="w-full" variant="secondary" disabled>
                       <Clock className="mr-2 h-4 w-4" />
