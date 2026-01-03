@@ -435,7 +435,6 @@ export default function Dashboard() {
       return;
     }
 
-    // Determine destination address from selection or free text
     let destination = "";
     if (selectedDestination) {
       const destinationObj = destinations.find((d) => d.id === selectedDestination);
@@ -471,15 +470,20 @@ export default function Dashboard() {
       );
     };
 
-    const tryOpen = (origin?: string) => {
+    // OPEN SYNCHRONOUSLY to avoid popup blockers
+    const tab = window.open("about:blank", "_blank", "noopener,noreferrer");
+    const navigateTo = (origin?: string) => {
       const url = buildWebUrl(origin);
-      const win = window.open(url, "_blank", "noopener,noreferrer");
-      if (!win) {
+      if (tab) {
+        tab.location.href = url;
+      } else {
+        // Fallback: open in same tab if popup blocked
         toast({
           title: "Popup blocked",
-          description: "Please allow popups for this site to view the route.",
+          description: "Opening route in the current tab.",
           variant: "destructive",
         });
+        window.location.href = url;
       }
     };
 
@@ -487,19 +491,19 @@ export default function Dashboard() {
       navigator.geolocation.getCurrentPosition(
         (pos) => {
           const origin = `${pos.coords.latitude},${pos.coords.longitude}`;
-          tryOpen(origin);
+          navigateTo(origin);
         },
         () => {
           toast({
             title: "Location access denied",
             description: "Opening route without a fixed start point.",
           });
-          tryOpen(undefined);
+          navigateTo(undefined);
         },
         { enableHighAccuracy: true, timeout: 8000, maximumAge: 0 }
       );
     } else {
-      tryOpen(undefined);
+      navigateTo(undefined);
     }
   }
 
