@@ -9,6 +9,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { CheckCircle2, Clock, User, MapPin, Navigation, ArrowLeft } from "lucide-react";
+import { openGoogleMapsApp } from "@/utils/maps";
 
 interface Task {
   id: string;
@@ -115,13 +116,7 @@ export function TasksBoard() {
 
   // Open Google Maps route immediately (current tab) to the task's pickup location
   function openTaskRoute(destination: string) {
-    const url =
-      `https://www.google.com/maps/dir/?api=1` +
-      `&destination=${encodeURIComponent(destination)}` +
-      `&travelmode=driving`;
-
-    // Immediate navigation in current tab avoids popup blockers
-    window.location.href = url;
+    openGoogleMapsApp(destination);
   }
 
   // NEW: Unaccept task (go back from Accepted to Available)

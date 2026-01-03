@@ -18,6 +18,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import logo from "@/assets/j-app-logo.jpg";
 import backgroundImage from "@/assets/app-background.png";
 import { Input } from "@/components/ui/input";
+import { openGoogleMapsApp } from "@/utils/maps";
 
 export default function Dashboard() {
   const navigate = useNavigate();
@@ -479,14 +480,7 @@ export default function Dashboard() {
       .map((id) => passengers.find((p) => p.id === id)?.default_pickup_location)
       .filter((loc): loc is string => Boolean(loc));
 
-    const url =
-      `https://www.google.com/maps/dir/?api=1` +
-      `&destination=${encodeURIComponent(destination)}` +
-      (waypointList.length > 0 ? `&waypoints=${encodeURIComponent(waypointList.join("|"))}` : "") +
-      `&travelmode=driving`;
-
-    // Immediate navigation in current tab avoids popup blockers
-    window.location.href = url;
+    openGoogleMapsApp(destination, waypointList);
   }
 
   if (!currentDriver) return null;
