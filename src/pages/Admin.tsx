@@ -543,13 +543,13 @@ export default function Admin() {
 
       <div className="container mx-auto px-4 py-8 max-w-5xl">
         <Tabs defaultValue="tasks" className="space-y-6">
-          <TabsList className="grid w-full grid-cols-6 gap-1">
-            <TabsTrigger value="tasks" className="text-xs sm:text-sm">Tasks</TabsTrigger>
-            <TabsTrigger value="drivers" className="text-xs sm:text-sm">Drivers</TabsTrigger>
-            <TabsTrigger value="passengers" className="text-xs sm:text-sm">Passengers</TabsTrigger>
-            <TabsTrigger value="destinations" className="text-xs sm:text-sm">Destinations</TabsTrigger>
-            <TabsTrigger value="templates" className="text-xs sm:text-sm">Templates</TabsTrigger>
-            <TabsTrigger value="settings" className="text-xs sm:text-sm">Settings</TabsTrigger>
+          <TabsList className="grid w-full grid-cols-3 sm:grid-cols-6 gap-1">
+            <TabsTrigger value="tasks" className="w-full text-xs sm:text-sm">Tasks</TabsTrigger>
+            <TabsTrigger value="drivers" className="w-full text-xs sm:text-sm">Drivers</TabsTrigger>
+            <TabsTrigger value="passengers" className="w-full text-xs sm:text-sm">Passengers</TabsTrigger>
+            <TabsTrigger value="destinations" className="w-full text-xs sm:text-sm">Destinations</TabsTrigger>
+            <TabsTrigger value="templates" className="w-full text-xs sm:text-sm">Templates</TabsTrigger>
+            <TabsTrigger value="settings" className="w-full text-xs sm:text-sm">Settings</TabsTrigger>
           </TabsList>
 
           <TabsContent value="tasks" className="space-y-6">
