@@ -753,34 +753,43 @@ export default function Dashboard() {
                       </div>
                     </div>
 
-                    <div className="grid grid-cols-3 gap-3">
-                      <Button 
-                        className="w-full" 
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                      <Button
+                        className="w-full h-20 flex flex-col items-center justify-center text-center gap-1"
                         size="lg"
                         onClick={handleFiveMinWarning}
                         disabled={selectedPassengers.length === 0 || currentTask?.five_min_warning_sent_at != null}
                       >
-                        <Clock className="mr-2 h-5 w-5" />
-                        5 Min Warning
+                        <Clock className="h-6 w-6" />
+                        <span className="font-semibold leading-tight">
+                          <span className="block">5 Min</span>
+                          <span className="block">Warning</span>
+                        </span>
                       </Button>
-                      <Button 
+                      <Button
                         variant="outline"
-                        className="w-full" 
+                        className="w-full h-20 flex flex-col items-center justify-center text-center gap-1"
                         size="lg"
                         onClick={handleAddPickup}
                       >
-                        <MapPin className="mr-2 h-5 w-5" />
-                        Add PickUp
+                        <MapPin className="h-6 w-6" />
+                        <span className="font-semibold leading-tight">
+                          <span className="block">Add</span>
+                          <span className="block">Pickup</span>
+                        </span>
                       </Button>
-                      <Button 
-                        variant="default" 
-                        className="w-full" 
+                      <Button
+                        variant="default"
+                        className="w-full h-20 flex flex-col items-center justify-center text-center gap-1"
                         size="lg"
                         onClick={handleDropOff}
                         disabled={selectedPassengers.length === 0}
                       >
-                        <CheckCircle2 className="mr-2 h-5 w-5" />
-                        Drop Off
+                        <CheckCircle2 className="h-6 w-6" />
+                        <span className="font-semibold leading-tight">
+                          <span className="block">Drop</span>
+                          <span className="block">Off</span>
+                        </span>
                       </Button>
                     </div>
 
