@@ -221,6 +221,7 @@ export default function Dashboard() {
     }
 
     let destinationAddress = "";
+    let destinationName = "";
     if (selectedDestination) {
       const destinationObj = destinations.find((d) => d.id === selectedDestination);
       if (!destinationObj || !destinationObj.address) {
@@ -228,8 +229,10 @@ export default function Dashboard() {
         return;
       }
       destinationAddress = destinationObj.address;
+      destinationName = destinationObj.name; // Use name for messages
     } else {
       destinationAddress = freeDestination.trim();
+      destinationName = freeDestination.trim(); // Typed value acts as a name for messages
     }
 
     const selectedPassengerData = passengers.filter(p => selectedPassengers.includes(p.id));
@@ -254,7 +257,7 @@ export default function Dashboard() {
     const taskData = {
       passenger_name: finalPassengerNames,
       pickup_location: finalPickupLocations,
-      dropoff_location: destinationAddress, // use selected or free-text destination
+      dropoff_location: destinationAddress, // keep address in DB for routing
       status: "on_board",
       driver_id: currentDriver.id,
       eta: eta,
@@ -302,12 +305,12 @@ export default function Dashboard() {
       taskId = data.id;
     }
 
-    // Send Telegram message using template
+    // Send Telegram message using destination NAME
     await sendTelegramTemplate("lets_go", {
       driver: currentDriver.name,
       passenger: passengerNames,
       eta: eta,
-      location: destinationAddress,
+      location: destinationName,
     });
 
     toast({ title: "Trip started! Message sent to group." });
@@ -402,11 +405,19 @@ export default function Dashboard() {
 
       if (error) throw error;
 
-      // Send Telegram notification
+      // Determine destination NAME for the message:
+      // Try to match the stored address to a saved destination, else use the stored text
+      const dropoffAddress = currentTask?.dropoff_location;
+      const matchedDest = dropoffAddress
+        ? destinations.find((d) => d.address === dropoffAddress)
+        : undefined;
+      const dropoffName = matchedDest ? matchedDest.name : dropoffAddress;
+
+      // Send Telegram notification with destination NAME
       await sendTelegramTemplate("drop_off", {
         driver: currentDriver.name,
         passenger: droppedPassengerNames,
-        location: currentTask?.dropoff_location ?? undefined,
+        location: dropoffName ?? undefined,
       });
 
       toast({ title: "All passengers dropped off! Trip completed." });
