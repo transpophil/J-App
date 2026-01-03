@@ -112,19 +112,20 @@ export default function Admin() {
     if (tasksRes.error) console.error("Tasks load error:", tasksRes.error);
     if (templatesRes.error) console.error("Templates load error:", templatesRes.error);
     if (settingsRes.error) console.error("Settings load error:", settingsRes.error);
+    if (destinationsRes.error) console.error("Destinations load error:", destinationsRes.error);
 
-    if (destinationsRes.error) {
-      console.error("Destinations load error:", destinationsRes.error);
-      // Suppress toast so Admin stays usable if the table hasn't been created yet
-    }
+    // FIX: update tasks state so Active Tasks reflects current data
+    setTasks(tasksRes.data || []);
 
     setDrivers(driversRes.data || []);
+
     // Build settings map and apply passenger order if present
     const settingsMap: any = {};
     (settingsRes.data || []).forEach((s) => {
       settingsMap[s.setting_key] = s.setting_value;
     });
     setSettings(settingsMap);
+
     let orderedPassengers = passengersRes.data || [];
     const orderStr = settingsMap["passenger_order"];
     if (orderStr) {
@@ -138,7 +139,7 @@ export default function Admin() {
           return (a.name || "").localeCompare(b.name || "");
         });
       } catch {
-        // ignore parse errors, keep default order
+        // ignore parse errors
       }
     }
     setPassengers(orderedPassengers);
