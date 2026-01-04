@@ -34,6 +34,7 @@ export default function Dashboard() {
   const [tripMode, setTripMode] = useState<"pickup" | "travel">("pickup");
   const [hasNewTasks, setHasNewTasks] = useState(false);
   const [showDelayDialog, setShowDelayDialog] = useState(false);
+  const [etaEdit, setEtaEdit] = useState<string>("");
 
   // ADDED: destinations and selected destination state
   const [destinations, setDestinations] = useState<any[]>([]);
@@ -195,6 +196,13 @@ export default function Dashboard() {
       setSelectedDestination("");
       setFreeDestination("");
     }
+
+    // Sync editable ETA when currentTask changes
+    if (currentTask?.eta) {
+      setEtaEdit(currentTask.eta);
+    } else {
+      setEtaEdit("");
+    }
   }
 
   function handleLetsGoClick() {
@@ -318,6 +326,33 @@ export default function Dashboard() {
     toast({ title: "Trip started! Message sent to group." });
     setShowEtaDialog(false);
     setTripMode("travel");
+    loadData();
+  }
+
+  async function handleEtaUpdate() {
+    if (!currentTask || !currentDriver || !etaEdit) {
+      toast({ title: "Please set a valid ETA", variant: "destructive" });
+      return;
+    }
+
+    const { error } = await supabase
+      .from("tasks")
+      .update({ eta: etaEdit, updated_at: new Date().toISOString() })
+      .eq("id", currentTask.id);
+
+    if (error) {
+      console.error("Error updating ETA:", error);
+      toast({ title: "Failed to update ETA", description: error.message || "Unknown error", variant: "destructive" });
+      return;
+    }
+
+    // Send Telegram update using editable template
+    await sendTelegramTemplate("eta_update", {
+      driver: currentDriver.name,
+      eta: etaEdit,
+    });
+
+    toast({ title: "ETA updated and message sent." });
     loadData();
   }
 
@@ -747,11 +782,32 @@ export default function Dashboard() {
                       </div>
 
                       <div className="p-4 bg-muted/50 border border-border rounded-lg">
-                        <div className="flex items-center gap-2 mb-2">
-                          <Clock className="h-5 w-5 text-foreground" />
-                          <span className="font-semibold text-foreground">ETA</span>
+                        <div className="flex items-center justify-between mb-2">
+                          <div className="flex items-center gap-2">
+                            <Clock className="h-5 w-5 text-foreground" />
+                            <span className="font-semibold text-foreground">ETA</span>
+                          </div>
+                          <Button
+                            size="sm"
+                            variant="default"
+                            onClick={handleEtaUpdate}
+                            disabled={!etaEdit}
+                            title="Update ETA and notify group"
+                          >
+                            Update
+                          </Button>
                         </div>
-                        <p className="text-3xl font-bold text-foreground text-center">{currentTask?.eta}</p>
+                        <div className="flex items-center gap-3">
+                          <Input
+                            type="time"
+                            value={etaEdit}
+                            onChange={(e) => setEtaEdit(e.target.value)}
+                            className="max-w-[160px]"
+                          />
+                          <span className="text-sm text-muted-foreground">
+                            Current: {currentTask?.eta || "—"}
+                          </span>
+                        </div>
                       </div>
                     </div>
 
