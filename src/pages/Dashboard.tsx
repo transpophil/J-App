@@ -33,6 +33,7 @@ export default function Dashboard() {
   const [showEtaDialog, setShowEtaDialog] = useState(false);
   const [tripMode, setTripMode] = useState<"pickup" | "travel">("pickup");
   const [hasNewTasks, setHasNewTasks] = useState(false);
+  const [showDelayDialog, setShowDelayDialog] = useState(false);
 
   // ADDED: destinations and selected destination state
   const [destinations, setDestinations] = useState<any[]>([]);
@@ -339,6 +340,7 @@ export default function Dashboard() {
     toast({ title: "Delay notification sent to group." });
     setDelayPassenger("");
     setShowDelaySelection(false);
+    setShowDelayDialog(false); // CLOSE: travel overview delay dialog if open
   }
 
   function togglePassengerSelection(passengerId: string) {
@@ -783,7 +785,7 @@ export default function Dashboard() {
 
                       <Button
                         variant="outline"
-                        className="col-span-2 w-full h-24 flex flex-col items-center justify-center text-center gap-1"
+                        className="w-full h-24 flex flex-col items-center justify-center text-center gap-1"
                         size="lg"
                         onClick={handleAddPickup}
                       >
@@ -791,6 +793,20 @@ export default function Dashboard() {
                         <span className="font-semibold leading-tight">
                           <span className="block">Add</span>
                           <span className="block">Pickup</span>
+                        </span>
+                      </Button>
+
+                      <Button
+                        variant="destructive"
+                        className="w-full h-24 flex flex-col items-center justify-center text-center gap-1"
+                        size="lg"
+                        onClick={() => setShowDelayDialog(true)}
+                        disabled={selectedPassengers.length === 0}
+                      >
+                        <AlertCircle className="h-6 w-6" />
+                        <span className="font-semibold leading-tight">
+                          <span className="block">Report</span>
+                          <span className="block">Delay</span>
                         </span>
                       </Button>
                     </div>
@@ -828,6 +844,54 @@ export default function Dashboard() {
               </Button>
               <Button onClick={handleConfirmTrip}>
                 Send
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* NEW: Delay selection dialog for Travel Overview */}
+      <Dialog open={showDelayDialog} onOpenChange={setShowDelayDialog}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Select delayed passenger</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            <div className="p-4 bg-destructive/10 border border-destructive/20 rounded-lg">
+              <Label className="text-foreground font-semibold">Passenger</Label>
+              <Select value={delayPassenger} onValueChange={setDelayPassenger}>
+                <SelectTrigger className="mt-2">
+                  <SelectValue placeholder="Choose passenger" />
+                </SelectTrigger>
+                <SelectContent>
+                  {selectedPassengers.map((passengerId) => {
+                    const passenger = passengers.find(p => p.id === passengerId);
+                    if (!passenger) return null;
+                    return (
+                      <SelectItem key={passenger.id} value={passenger.id}>
+                        {passenger.name}
+                      </SelectItem>
+                    );
+                  })}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <Button
+                variant="outline"
+                onClick={() => {
+                  setShowDelayDialog(false);
+                  setDelayPassenger("");
+                }}
+              >
+                Cancel
+              </Button>
+              <Button
+                variant="destructive"
+                onClick={handleDelay}
+                disabled={!delayPassenger}
+              >
+                Send Delay Notice
               </Button>
             </div>
           </div>
