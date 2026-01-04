@@ -8,6 +8,15 @@ interface TemplateVariables {
   location?: string;
 }
 
+// ADD: default templates fallback
+const DEFAULT_TEMPLATES: Record<string, string> = {
+  lets_go: "[driver] is on the way to [location] with [passenger]. ETA [eta].",
+  eta_update: "Due to delay [driver] has a new ETA [eta]. please be aware",
+  delay: "[driver] reports delay for [passenger] [delay]",
+  five_min_warning: "[driver] will arrive at [location] in about 5 minutes.",
+  drop_off: "[driver] dropped off [passenger] at [location].",
+};
+
 export async function sendTelegramTemplate(templateKey: string, variables: TemplateVariables) {
   try {
     // Fetch Telegram settings and template
@@ -16,20 +25,16 @@ export async function sendTelegramTemplate(templateKey: string, variables: Templ
         .from("app_settings")
         .select("setting_key, setting_value")
         .in("setting_key", ["telegram_bot_token", "telegram_chat_id"]),
+      // Use maybeSingle so we can handle missing template gracefully
       supabase
         .from("message_templates")
         .select("template_text")
         .eq("template_key", templateKey)
-        .single()
+        .maybeSingle()
     ]);
 
     if (!settingsRes.data || settingsRes.data.length < 2) {
       console.error("Telegram settings not configured");
-      return;
-    }
-
-    if (!templateRes.data) {
-      console.error("Template not found:", templateKey);
       return;
     }
 
@@ -41,8 +46,18 @@ export async function sendTelegramTemplate(templateKey: string, variables: Templ
       return;
     }
 
+    // Get template or fall back to default and ensure it exists for Admin editing
+    let templateText = templateRes.data?.template_text;
+    if (!templateText) {
+      templateText = DEFAULT_TEMPLATES[templateKey] ?? "[driver] update";
+      // Try to create the missing template so Admin can edit it later
+      await supabase
+        .from("message_templates")
+        .insert([{ template_key: templateKey, template_text: templateText }]);
+    }
+
     // Replace template variables
-    let message = templateRes.data.template_text;
+    let message = templateText;
     Object.entries(variables).forEach(([key, value]) => {
       if (value) {
         message = message.replace(new RegExp(`\\[${key}\\]`, 'g'), value);

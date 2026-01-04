@@ -378,10 +378,22 @@ export default function Admin() {
     ];
 
     for (const update of updates) {
-      await supabase
+      const { data: existing } = await supabase
         .from("app_settings")
-        .update({ setting_value: update.value })
-        .eq("setting_key", update.key);
+        .select("id")
+        .eq("setting_key", update.key)
+        .maybeSingle();
+
+      if (existing) {
+        await supabase
+          .from("app_settings")
+          .update({ setting_value: update.value })
+          .eq("setting_key", update.key);
+      } else {
+        await supabase
+          .from("app_settings")
+          .insert([{ setting_key: update.key, setting_value: update.value }]);
+      }
     }
 
     toast({ title: "Settings updated" });
