@@ -143,7 +143,28 @@ export default function Admin() {
       }
     }
     setPassengers(orderedPassengers);
-    setTemplates(templatesRes.data || []);
+
+    // NEW: Ensure 'eta_update' template exists; seed if missing so it appears in Admin
+    let templatesData = templatesRes.data || [];
+    const hasEtaUpdate = templatesData.some((t: any) => t.template_key === "eta_update");
+    if (!hasEtaUpdate) {
+      const { data: inserted, error: insertError } = await supabase
+        .from("message_templates")
+        .insert([{
+          template_key: "eta_update",
+          template_text: "Due to delay [driver] has a new ETA [eta]. please be aware",
+          description: "Message when driver updates ETA due to delay"
+        }])
+        .select()
+        .single();
+      if (!insertError && inserted) {
+        templatesData = [...templatesData, inserted];
+      } else {
+        console.error("Failed to seed eta_update template:", insertError);
+      }
+    }
+
+    setTemplates(templatesData);
     setDestinations(destinationsRes.data || []);
   }
 
