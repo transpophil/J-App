@@ -323,6 +323,12 @@ export default function Dashboard() {
       location: destinationName,
     });
 
+    // OPEN ROUTE: include all selected pickup locations as waypoints in order
+    const waypointList = selectedPassengerData
+      .map(p => p.default_pickup_location)
+      .filter((loc): loc is string => Boolean(loc));
+    openGoogleMapsApp(destinationAddress, waypointList);
+
     toast({ title: "Trip started! Message sent to group." });
     setShowEtaDialog(false);
     setTripMode("travel");

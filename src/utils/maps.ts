@@ -12,7 +12,7 @@ export function openGoogleMapsApp(destination: string, waypoints: string[] = [])
     `&destination=${encodeURIComponent(destination)}` +
     (api1Waypoints.length > 0 ? `&waypoints=${encodeURIComponent(api1Waypoints.join("|"))}` : "") +
     `&travelmode=driving` +
-    `&dir_action=navigate`;
+    `&map_action=map`;
 
   if (isiOS) {
     // iOS: Use the legacy daddr chain with "via:" and "to:" to lock waypoint order
