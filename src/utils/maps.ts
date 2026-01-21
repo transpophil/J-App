@@ -4,7 +4,7 @@ export function openGoogleMapsApp(destination: string, waypoints: string[] = [])
 
   const stops = waypoints.filter(Boolean);
 
-  // Fallback web URL (api=1) with explicit origin and ordered waypoints forced via "via:"
+  // Build "via:"-forced waypoints for API v1 web link (fallback) in the chosen order
   const api1Waypoints = stops.map((w) => `via:${w}`);
   const webLink =
     `https://www.google.com/maps/dir/?api=1` +
@@ -14,16 +14,21 @@ export function openGoogleMapsApp(destination: string, waypoints: string[] = [])
     `&travelmode=driving` +
     `&dir_action=navigate`;
 
-  // iOS: prefer deep link (supports waypoints and preserves order); fallback opens web route in a new tab
   if (isiOS) {
-    const iosParams = new URLSearchParams();
-    iosParams.set("saddr", "Current Location");
-    if (destination) iosParams.set("daddr", destination);
-    if (api1Waypoints.length > 0) iosParams.set("waypoints", api1Waypoints.join("|"));
-    iosParams.set("directionsmode", "driving");
+    // iOS: Use the legacy daddr chain with "via:" and "to:" to lock waypoint order
+    // daddr=via:stop1+to:via:stop2+to:destination
+    const encodedStops = stops.map((addr) => `via:${encodeURIComponent(addr)}`);
+    const daddrChain =
+      (encodedStops.length > 0 ? encodedStops.join("+to:") + "+to:" : "") +
+      encodeURIComponent(destination);
 
-    const iosDeepLink = `comgooglemaps://?${iosParams.toString()}`;
+    const iosDeepLink =
+      `comgooglemaps://?` +
+      `saddr=${encodeURIComponent("Current Location")}` +
+      `&daddr=${daddrChain}` +
+      `&directionsmode=driving`;
 
+    // Fallback to web route (opens in new tab so dashboard stays) if app isn't installed
     const fallbackTimeout = setTimeout(() => {
       window.open(webLink, "_blank");
     }, 1200);
@@ -45,9 +50,8 @@ export function openGoogleMapsApp(destination: string, waypoints: string[] = [])
     return;
   }
 
-  // Android & Desktop: use legacy daddr chain with "via:" and "to:" to preserve waypoint order reliably
-  // Build: daddr=via:stop1+to:via:stop2+to:destination
-  const encodedStops = stops.map((w) => `via:${encodeURIComponent(w)}`);
+  // Android & Desktop: use legacy Google Maps link with "via:" and "to:" to preserve order; open in new tab
+  const encodedStops = stops.map((addr) => `via:${encodeURIComponent(addr)}`);
   const daddrValue =
     (encodedStops.length > 0 ? encodedStops.join("+to:") + "+to:" : "") +
     encodeURIComponent(destination);
@@ -57,6 +61,5 @@ export function openGoogleMapsApp(destination: string, waypoints: string[] = [])
     `&saddr=${encodeURIComponent("Current Location")}` +
     `&daddr=${daddrValue}`;
 
-  // Open in new tab so the dashboard stays
   window.open(androidDesktopLink, "_blank");
 }
