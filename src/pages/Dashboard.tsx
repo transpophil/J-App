@@ -41,6 +41,8 @@ export default function Dashboard() {
   const [selectedDestination, setSelectedDestination] = useState<string>("");
   // ADD: free text destination
   const [freeDestination, setFreeDestination] = useState<string>("");
+  // ADDED: project picture URL state
+  const [projectPictureUrl, setProjectPictureUrl] = useState<string>("");
 
   // Add a unified Back handler for trip steps
   function handleBackStep() {
@@ -129,6 +131,14 @@ export default function Dashboard() {
       .order("name");
 
     setDestinations(destinationsData || []);
+
+    // ADDED: Load project picture URL from app_settings
+    const { data: ppSetting } = await supabase
+      .from("app_settings")
+      .select("setting_value")
+      .eq("setting_key", "project_picture_url")
+      .maybeSingle();
+    setProjectPictureUrl(ppSetting?.setting_value || "");
 
     // Apply saved order (unchanged)
     let orderedPassengers = passengersData || [];
@@ -571,6 +581,17 @@ export default function Dashboard() {
       </header>
 
       <div className="container mx-auto px-4 py-8 max-w-3xl space-y-8">
+        {/* ADDED: Shared Project Picture (circular) */}
+        <div className="flex justify-center">
+          <div className="w-24 h-24 sm:w-28 sm:h-28 rounded-full overflow-hidden border border-border shadow-sm bg-card">
+            <img
+              src={projectPictureUrl || (logo as string)}
+              alt="Project"
+              className="w-full h-full object-cover"
+            />
+          </div>
+        </div>
+
         {/* Tabs for Tasks and Pick Ups */}
         <Tabs defaultValue="pickups" className="w-full">
           <TabsList className="w-full justify-center gap-4 p-2">

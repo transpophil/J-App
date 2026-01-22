@@ -56,6 +56,8 @@ export default function Admin() {
   });
   // ADDED: state for the destination being edited
   const [editingDestination, setEditingDestination] = useState<any>(null);
+  // ADDED: project picture file state
+  const [projectFile, setProjectFile] = useState<File | null>(null);
 
   useEffect(() => {
     if (isAuthenticated) {
@@ -418,6 +420,105 @@ export default function Admin() {
     }
 
     toast({ title: "Settings updated" });
+  }
+
+  // ADDED: handle project picture file selection with validation
+  function handleProjectFileChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0] || null;
+    if (!file) {
+      setProjectFile(null);
+      return;
+    }
+    const isValidType = file.type === "image/jpeg" || file.type === "image/png";
+    const maxSize = 5 * 1024 * 1024; // 5 MB
+    if (!isValidType) {
+      toast({ title: "Invalid file type", description: "Please upload a JPEG or PNG image.", variant: "destructive" });
+      e.target.value = "";
+      setProjectFile(null);
+      return;
+    }
+    if (file.size > maxSize) {
+      toast({ title: "File too large", description: "Max size is 5 MB.", variant: "destructive" });
+      e.target.value = "";
+      setProjectFile(null);
+      return;
+    }
+    setProjectFile(file);
+  }
+
+  // ADDED: upload project picture to Supabase Storage and save public URL in app_settings
+  async function uploadProjectPicture() {
+    if (!projectFile) {
+      toast({ title: "No file selected", variant: "destructive" });
+      return;
+    }
+
+    const ext = projectFile.name.split(".").pop()?.toLowerCase();
+    if (!ext || (ext !== "jpg" && ext !== "jpeg" && ext !== "png")) {
+      toast({ title: "Invalid extension", description: "Allowed: .jpg, .jpeg, .png", variant: "destructive" });
+      return;
+    }
+
+    const filePath = `project_${Date.now()}.${ext}`;
+    const { error: uploadError } = await supabase
+      .storage
+      .from("project-pictures")
+      .upload(filePath, projectFile, { upsert: true, contentType: projectFile.type });
+
+    if (uploadError) {
+      console.error("Project picture upload error:", uploadError);
+      toast({
+        title: "Upload failed",
+        description: "Ensure a public storage bucket named 'project-pictures' exists in Supabase.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    const { data: pub } = supabase.storage.from("project-pictures").getPublicUrl(filePath);
+    const publicUrl = pub?.publicUrl;
+    if (!publicUrl) {
+      toast({ title: "Failed to get public URL", variant: "destructive" });
+      return;
+    }
+
+    const { data: existing } = await supabase
+      .from("app_settings")
+      .select("id")
+      .eq("setting_key", "project_picture_url")
+      .maybeSingle();
+
+    if (existing) {
+      await supabase
+        .from("app_settings")
+        .update({ setting_value: publicUrl })
+        .eq("setting_key", "project_picture_url");
+    } else {
+      await supabase
+        .from("app_settings")
+        .insert([{ setting_key: "project_picture_url", setting_value: publicUrl }]);
+    }
+
+    setSettings({ ...settings, project_picture_url: publicUrl });
+    setProjectFile(null);
+    toast({ title: "Project picture updated" });
+  }
+
+  // ADDED: clear project picture setting
+  async function clearProjectPicture() {
+    const { data: existing } = await supabase
+      .from("app_settings")
+      .select("id")
+      .eq("setting_key", "project_picture_url")
+      .maybeSingle();
+
+    if (existing) {
+      await supabase.from("app_settings").delete().eq("setting_key", "project_picture_url");
+      setSettings({ ...settings, project_picture_url: "" });
+      toast({ title: "Project picture removed" });
+    } else {
+      toast({ title: "No project picture set" });
+    }
   }
 
   function escapeCSV(value: any): string {
@@ -944,6 +1045,36 @@ export default function Admin() {
                   onChange={(e) => setSettings({ ...settings, admin_passkey: e.target.value })}
                 />
               </div>
+
+              {/* ADDED: Project Picture upload */}
+              <div className="space-y-2">
+                <Label>Project Picture (JPEG/PNG, max 5 MB)</Label>
+                <div className="flex items-center gap-4">
+                  <div className="w-20 h-20 rounded-full overflow-hidden border border-border">
+                    {settings.project_picture_url ? (
+                      <img
+                        src={settings.project_picture_url}
+                        alt="Project"
+                        className="w-full h-full object-cover"
+                      />
+                    ) : (
+                      <img
+                        src={logo}
+                        alt="Placeholder"
+                        className="w-full h-full object-cover opacity-50"
+                      />
+                    )}
+                  </div>
+                  <div className="flex-1 flex items-center gap-2">
+                    <Input type="file" accept="image/png,image/jpeg" onChange={handleProjectFileChange} />
+                    <Button onClick={uploadProjectPicture} disabled={!projectFile}>Upload</Button>
+                    {settings.project_picture_url && (
+                      <Button variant="outline" onClick={clearProjectPicture}>Remove</Button>
+                    )}
+                  </div>
+                </div>
+              </div>
+
               <Button onClick={updateSettings}>Save Settings</Button>
             </Card>
           </TabsContent>
