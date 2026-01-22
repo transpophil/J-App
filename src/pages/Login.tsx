@@ -18,15 +18,8 @@ export default function Login() {
   const { toast } = useToast();
   const [drivers, setDrivers] = useState<any[]>([]);
   const [showPinDialog, setShowPinDialog] = useState(false);
-  const [showRegisterDialog, setShowRegisterDialog] = useState(false);
   const [selectedDriver, setSelectedDriver] = useState<any>(null);
   const [pin, setPin] = useState("");
-  const [registerForm, setRegisterForm] = useState({
-    name: "",
-    email: "",
-    phone: "",
-    pin: "",
-  });
 
   useEffect(() => {
     if (currentDriver) {
@@ -64,37 +57,6 @@ export default function Login() {
     }
   }
 
-  async function handleRegister() {
-    const { name, pin } = registerForm;
-    if (!name.trim() || !pin.trim()) {
-      toast({ title: "Name and PIN are required", variant: "destructive" });
-      return;
-    }
-
-    const { data, error } = await supabase
-      .from("drivers")
-      .insert([
-        {
-          name: name.trim(),
-          email: registerForm.email.trim() || null,
-          phone: registerForm.phone.trim() || null,
-          pin_password: pin,
-        },
-      ])
-      .select()
-      .single();
-
-    if (error) {
-      toast({ title: "Registration failed", description: error.message, variant: "destructive" });
-      return;
-    }
-
-    toast({ title: "Registration successful!", description: `Welcome, ${data.name}` });
-    setCurrentDriver({ id: data.id, name: data.name, email: data.email, phone: data.phone });
-    setShowRegisterDialog(false);
-    navigate("/dashboard");
-  }
-
   return (
     <div 
       className="min-h-screen flex items-center justify-center p-4 bg-cover bg-center"
@@ -130,15 +92,6 @@ export default function Login() {
                 </Button>
               ))
             )}
-
-            <Button
-              variant="default"
-              className="w-full h-14 text-lg bg-gradient-to-r from-primary to-secondary hover:opacity-90 transition-all"
-              onClick={() => setShowRegisterDialog(true)}
-            >
-              <UserPlus className="mr-2 h-5 w-5" />
-              Register New Driver
-            </Button>
           </div>
         </div>
       </Card>
@@ -160,54 +113,6 @@ export default function Login() {
             />
             <Button onClick={handlePinSubmit} className="w-full">
               Login
-            </Button>
-          </div>
-        </DialogContent>
-      </Dialog>
-
-      <Dialog open={showRegisterDialog} onOpenChange={setShowRegisterDialog}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Register New Driver</DialogTitle>
-          </DialogHeader>
-          <div className="space-y-4">
-            <div>
-              <Label>Name *</Label>
-              <Input
-                value={registerForm.name}
-                onChange={(e) => setRegisterForm({ ...registerForm, name: e.target.value })}
-                placeholder="Enter your name"
-              />
-            </div>
-            <div>
-              <Label>Email (optional)</Label>
-              <Input
-                type="email"
-                value={registerForm.email}
-                onChange={(e) => setRegisterForm({ ...registerForm, email: e.target.value })}
-                placeholder="Enter your email"
-              />
-            </div>
-            <div>
-              <Label>Phone (optional)</Label>
-              <Input
-                type="tel"
-                value={registerForm.phone}
-                onChange={(e) => setRegisterForm({ ...registerForm, phone: e.target.value })}
-                placeholder="Enter your phone"
-              />
-            </div>
-            <div>
-              <Label>PIN/Password *</Label>
-              <Input
-                type="password"
-                value={registerForm.pin}
-                onChange={(e) => setRegisterForm({ ...registerForm, pin: e.target.value })}
-                placeholder="Create a PIN"
-              />
-            </div>
-            <Button onClick={handleRegister} className="w-full">
-              Register
             </Button>
           </div>
         </DialogContent>
