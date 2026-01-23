@@ -35,6 +35,12 @@ export default function Dashboard() {
   const [hasNewTasks, setHasNewTasks] = useState(false);
   const [showDelayDialog, setShowDelayDialog] = useState(false);
   const [etaEdit, setEtaEdit] = useState<string>("");
+  // PREVENT DUPLICATES: action sending flags
+  const [sendingLetsGo, setSendingLetsGo] = useState(false);
+  const [sendingEtaUpdate, setSendingEtaUpdate] = useState(false);
+  const [sendingDelay, setSendingDelay] = useState(false);
+  const [sendingFiveMinWarn, setSendingFiveMinWarn] = useState(false);
+  const [sendingDropOff, setSendingDropOff] = useState(false);
 
   // ADDED: destinations and selected destination state
   const [destinations, setDestinations] = useState<any[]>([]);
@@ -233,10 +239,13 @@ export default function Dashboard() {
       toast({ title: "Please set ETA", variant: "destructive" });
       return;
     }
+    if (sendingLetsGo) return;
+    setSendingLetsGo(true);
 
     // VALIDATE: require either selected destination or free-text destination
     if (!selectedDestination && !freeDestination.trim()) {
       toast({ title: "Please select or enter a destination", variant: "destructive" });
+      setSendingLetsGo(false);
       return;
     }
 
@@ -246,26 +255,26 @@ export default function Dashboard() {
       const destinationObj = destinations.find((d) => d.id === selectedDestination);
       if (!destinationObj || !destinationObj.address) {
         toast({ title: "Invalid destination selected", variant: "destructive" });
+        setSendingLetsGo(false);
         return;
       }
       destinationAddress = destinationObj.address;
-      destinationName = destinationObj.name; // Use name for messages
+      destinationName = destinationObj.name;
     } else {
       destinationAddress = freeDestination.trim();
-      destinationName = freeDestination.trim(); // Typed value acts as a name for messages
+      destinationName = freeDestination.trim();
     }
 
     const selectedPassengerData = passengers.filter(p => selectedPassengers.includes(p.id));
     if (selectedPassengerData.length === 0) {
       toast({ title: "No passengers selected", variant: "destructive" });
+      setSendingLetsGo(false);
       return;
     }
 
-    // Join passenger names and locations
     const passengerNames = selectedPassengerData.map(p => p.name).join(" & ");
     const pickupLocations = selectedPassengerData.map(p => p.default_pickup_location).join(", ");
 
-    // If updating existing task, append new passengers
     const finalPassengerNames = currentTask 
       ? `${currentTask.passenger_name} & ${passengerNames}`
       : passengerNames;
@@ -273,11 +282,10 @@ export default function Dashboard() {
       ? `${currentTask.pickup_location}, ${pickupLocations}`
       : pickupLocations;
 
-    // Create or update task
     const taskData = {
       passenger_name: finalPassengerNames,
       pickup_location: finalPickupLocations,
-      dropoff_location: destinationAddress, // keep address in DB for routing
+      dropoff_location: destinationAddress,
       status: "on_board",
       driver_id: currentDriver.id,
       eta: eta,
@@ -286,20 +294,15 @@ export default function Dashboard() {
     };
 
     let taskId = currentTask?.id;
-    
     if (currentTask) {
       const { error } = await supabase
         .from("tasks")
         .update(taskData)
         .eq("id", currentTask.id);
-      
       if (error) {
         console.error("Error updating task:", error);
-        toast({ 
-          title: "Failed to start trip", 
-          description: error.message || "Unknown error",
-          variant: "destructive" 
-        });
+        toast({ title: "Failed to start trip", description: error.message || "Unknown error", variant: "destructive" });
+        setSendingLetsGo(false);
         return;
       }
     } else {
@@ -308,24 +311,20 @@ export default function Dashboard() {
         .insert([taskData])
         .select()
         .single();
-      
       if (error) {
         console.error("Error creating task:", error);
-        toast({ 
-          title: "Failed to start trip", 
-          description: error.message || "Unknown error",
-          variant: "destructive" 
-        });
+        toast({ title: "Failed to start trip", description: error.message || "Unknown error", variant: "destructive" });
+        setSendingLetsGo(false);
         return;
       }
       if (!data) {
         toast({ title: "Failed to start trip: No data returned", variant: "destructive" });
+        setSendingLetsGo(false);
         return;
       }
       taskId = data.id;
     }
 
-    // Send Telegram message using destination NAME
     await sendTelegramTemplate("lets_go", {
       driver: currentDriver.name,
       passenger: passengerNames,
@@ -333,7 +332,6 @@ export default function Dashboard() {
       location: destinationName,
     });
 
-    // OPEN ROUTE: include all selected pickup locations as waypoints in order
     const waypointList = selectedPassengerData
       .map(p => p.default_pickup_location)
       .filter((loc): loc is string => Boolean(loc));
@@ -342,6 +340,7 @@ export default function Dashboard() {
     toast({ title: "Trip started! Message sent to group." });
     setShowEtaDialog(false);
     setTripMode("travel");
+    setSendingLetsGo(false);
     loadData();
   }
 
@@ -350,6 +349,8 @@ export default function Dashboard() {
       toast({ title: "Please set a valid ETA", variant: "destructive" });
       return;
     }
+    if (sendingEtaUpdate) return;
+    setSendingEtaUpdate(true);
 
     const { error } = await supabase
       .from("tasks")
@@ -359,16 +360,17 @@ export default function Dashboard() {
     if (error) {
       console.error("Error updating ETA:", error);
       toast({ title: "Failed to update ETA", description: error.message || "Unknown error", variant: "destructive" });
+      setSendingEtaUpdate(false);
       return;
     }
 
-    // Send Telegram update using editable template
     await sendTelegramTemplate("eta_update", {
       driver: currentDriver.name,
       eta: etaEdit,
     });
 
     toast({ title: "ETA updated and message sent." });
+    setSendingEtaUpdate(false);
     loadData();
   }
 
@@ -377,11 +379,15 @@ export default function Dashboard() {
       toast({ title: "Please select a passenger", variant: "destructive" });
       return;
     }
+    if (sendingDelay) return;
+    setSendingDelay(true);
 
     const passenger = passengers.find(p => p.id === delayPassenger);
-    if (!passenger) return;
+    if (!passenger) {
+      setSendingDelay(false);
+      return;
+    }
 
-    // Send delay message
     await sendTelegramTemplate("delay", {
       driver: currentDriver.name,
       passenger: passenger.name,
@@ -391,7 +397,8 @@ export default function Dashboard() {
     toast({ title: "Delay notification sent to group." });
     setDelayPassenger("");
     setShowDelaySelection(false);
-    setShowDelayDialog(false); // CLOSE: travel overview delay dialog if open
+    setShowDelayDialog(false);
+    setSendingDelay(false);
   }
 
   function togglePassengerSelection(passengerId: string) {
@@ -406,6 +413,8 @@ export default function Dashboard() {
 
   async function handleFiveMinWarning() {
     if (!currentTask || !currentDriver || selectedPassengers.length === 0) return;
+    if (sendingFiveMinWarn) return;
+    setSendingFiveMinWarn(true);
 
     const { error } = await supabase
       .from("tasks")
@@ -414,10 +423,10 @@ export default function Dashboard() {
 
     if (error) {
       toast({ title: "Failed to update task", variant: "destructive" });
+      setSendingFiveMinWarn(false);
       return;
     }
 
-    // Determine destination NAME for the message (use saved destination name if address matches)
     const dropoffAddress = currentTask?.dropoff_location;
     const matchedDest = dropoffAddress
       ? destinations.find((d) => d.address === dropoffAddress)
@@ -431,6 +440,7 @@ export default function Dashboard() {
     });
 
     toast({ title: "5-minute warning sent to group." });
+    setSendingFiveMinWarn(false);
     loadData();
   }
 
@@ -439,9 +449,10 @@ export default function Dashboard() {
       toast({ title: "No passengers to drop off", variant: "destructive" });
       return;
     }
+    if (sendingDropOff) return;
+    setSendingDropOff(true);
 
     try {
-      // Get all selected passengers' names
       const droppedPassengerNames = selectedPassengers
         .map(passengerId => {
           const passenger = passengers.find(p => p.id === passengerId);
@@ -452,10 +463,10 @@ export default function Dashboard() {
 
       if (!droppedPassengerNames) {
         toast({ title: "No valid passengers selected", variant: "destructive" });
+        setSendingDropOff(false);
         return;
       }
 
-      // Complete the task in database first
       const { error } = await supabase
         .from("tasks")
         .update({
@@ -467,15 +478,12 @@ export default function Dashboard() {
 
       if (error) throw error;
 
-      // Determine destination NAME for the message:
-      // Try to match the stored address to a saved destination, else use the stored text
       const dropoffAddress = currentTask?.dropoff_location;
       const matchedDest = dropoffAddress
         ? destinations.find((d) => d.address === dropoffAddress)
         : undefined;
       const dropoffName = matchedDest ? matchedDest.name : dropoffAddress;
 
-      // Send Telegram notification with destination NAME
       await sendTelegramTemplate("drop_off", {
         driver: currentDriver.name,
         passenger: droppedPassengerNames,
@@ -483,12 +491,12 @@ export default function Dashboard() {
       });
 
       toast({ title: "All passengers dropped off! Trip completed." });
-      
-      // Reset to START PICKUP state - loadData will handle the rest
       await loadData();
     } catch (error) {
       console.error("Error completing drop off:", error);
       toast({ title: "Failed to complete drop off", variant: "destructive" });
+    } finally {
+      setSendingDropOff(false);
     }
   }
 
@@ -703,7 +711,7 @@ export default function Dashboard() {
                         className="w-full" 
                         size="lg"
                         onClick={handleLetsGoClick}
-                        disabled={selectedPassengers.length === 0}
+                        disabled={selectedPassengers.length === 0 || sendingLetsGo}
                       >
                         <CheckCircle2 className="mr-2 h-5 w-5" />
                         Let's Go
@@ -763,7 +771,7 @@ export default function Dashboard() {
                             <Button 
                               variant="destructive"
                               onClick={handleDelay}
-                              disabled={!delayPassenger}
+                              disabled={!delayPassenger || sendingDelay}
                             >
                               Send Delay Notice
                             </Button>
@@ -818,7 +826,7 @@ export default function Dashboard() {
                             size="sm"
                             variant="default"
                             onClick={handleEtaUpdate}
-                            disabled={!etaEdit}
+                            disabled={!etaEdit || sendingEtaUpdate}
                             title="Update ETA and notify group"
                           >
                             Update
@@ -843,7 +851,7 @@ export default function Dashboard() {
                         className="w-full h-24 flex flex-col items-center justify-center text-center gap-1"
                         size="lg"
                         onClick={handleFiveMinWarning}
-                        disabled={selectedPassengers.length === 0 || currentTask?.five_min_warning_sent_at != null}
+                        disabled={selectedPassengers.length === 0 || sendingFiveMinWarn || currentTask?.five_min_warning_sent_at != null}
                       >
                         <Clock className="h-6 w-6" />
                         <span className="font-semibold leading-tight">
@@ -857,7 +865,7 @@ export default function Dashboard() {
                         className="w-full h-24 flex flex-col items-center justify-center text-center gap-1"
                         size="lg"
                         onClick={handleDropOff}
-                        disabled={selectedPassengers.length === 0}
+                        disabled={selectedPassengers.length === 0 || sendingDropOff}
                       >
                         <CheckCircle2 className="h-6 w-6" />
                         <span className="font-semibold leading-tight">
@@ -972,7 +980,7 @@ export default function Dashboard() {
               <Button
                 variant="destructive"
                 onClick={handleDelay}
-                disabled={!delayPassenger}
+                disabled={!delayPassenger || sendingDelay}
               >
                 Send Delay Notice
               </Button>
