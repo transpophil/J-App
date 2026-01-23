@@ -11,8 +11,8 @@ export function TimeWheel({ value, onChange }: TimeWheelProps) {
   const hourRef = useRef<HTMLDivElement>(null);
   const minuteRef = useRef<HTMLDivElement>(null);
 
-  // Generate hours (1-12)
-  const hours = Array.from({ length: 12 }, (_, i) => i + 1);
+  // Generate hours (0-23) for 24-hour format
+  const hours = Array.from({ length: 24 }, (_, i) => i);
   // Generate minutes (0-59)
   const minutes = Array.from({ length: 60 }, (_, i) => i);
 
@@ -27,7 +27,8 @@ export function TimeWheel({ value, onChange }: TimeWheelProps) {
     const itemHeight = 48; // h-12 = 48px
     const index = Math.round(scrollTop / itemHeight);
     const newHour = hours[index % hours.length];
-    if (newHour && newHour !== hour) {
+    // Allow selecting 00 (hour 0) by checking for undefined instead of truthy
+    if (newHour !== undefined && newHour !== hour) {
       setHour(newHour);
     }
   };
