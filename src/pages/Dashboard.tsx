@@ -908,6 +908,35 @@ export default function Dashboard() {
                           </span>
                         </Button>
                       )}
+
+                      {/* RESTORED: Add Pickup */}
+                      <Button
+                        variant="outline"
+                        className="w-full h-24 flex flex-col items-center justify-center text-center gap-1"
+                        size="lg"
+                        onClick={handleAddPickup}
+                      >
+                        <MapPin className="h-6 w-6" />
+                        <span className="font-semibold leading-tight">
+                          <span className="block">Add</span>
+                          <span className="block">Pickup</span>
+                        </span>
+                      </Button>
+
+                      {/* RESTORED: Report Delay */}
+                      <Button
+                        variant="destructive"
+                        className="w-full h-24 flex flex-col items-center justify-center text-center gap-1"
+                        size="lg"
+                        onClick={() => setShowDelayDialog(true)}
+                        disabled={selectedPassengers.length === 0}
+                      >
+                        <AlertCircle className="h-6 w-6" />
+                        <span className="font-semibold leading-tight">
+                          <span className="block">Report</span>
+                          <span className="block">Delay</span>
+                        </span>
+                      </Button>
                     </div>
 
                     {currentTask?.five_min_warning_sent_at && (
