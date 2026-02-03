@@ -41,6 +41,9 @@ export default function Dashboard() {
   const [sendingDelay, setSendingDelay] = useState(false);
   const [sendingFiveMinWarn, setSendingFiveMinWarn] = useState(false);
   const [sendingDropOff, setSendingDropOff] = useState(false);
+  // ADDED: success indicators for big check
+  const [fiveMinSentCheck, setFiveMinSentCheck] = useState(false);
+  const [dropOffCheck, setDropOffCheck] = useState(false);
 
   // ADDED: destinations and selected destination state
   const [destinations, setDestinations] = useState<any[]>([]);
@@ -439,6 +442,9 @@ export default function Dashboard() {
       location: dropoffName ?? undefined,
     });
 
+    // ADDED: show big check right away
+    setFiveMinSentCheck(true);
+
     toast({ title: "5-minute warning sent to group." });
     setSendingFiveMinWarn(false);
     loadData();
@@ -489,6 +495,9 @@ export default function Dashboard() {
         passenger: droppedPassengerNames,
         location: dropoffName ?? undefined,
       });
+
+      // ADDED: show big check right away
+      setDropOffCheck(true);
 
       toast({ title: "All passengers dropped off! Trip completed." });
       await loadData();
@@ -847,59 +856,58 @@ export default function Dashboard() {
                     </div>
 
                     <div className="grid grid-cols-2 gap-4">
-                      <Button
-                        className="w-full h-24 flex flex-col items-center justify-center text-center gap-1"
-                        size="lg"
-                        onClick={handleFiveMinWarning}
-                        disabled={selectedPassengers.length === 0 || sendingFiveMinWarn || currentTask?.five_min_warning_sent_at != null}
-                      >
-                        <Clock className="h-6 w-6" />
-                        <span className="font-semibold leading-tight">
-                          <span className="block">5 Min</span>
-                          <span className="block">Warning</span>
-                        </span>
-                      </Button>
+                      {/* Five-minute warning button with big check state */}
+                      { (currentTask?.five_min_warning_sent_at != null) || fiveMinSentCheck ? (
+                        <div className="w-full h-24 flex items-center justify-center rounded-md bg-emerald-600 text-white shadow-sm">
+                          <div className="flex flex-col items-center gap-1">
+                            <CheckCircle2 className="h-8 w-8" />
+                            <span className="font-semibold leading-tight">
+                              <span className="block">5 Min</span>
+                              <span className="block">Sent</span>
+                            </span>
+                          </div>
+                        </div>
+                      ) : (
+                        <Button
+                          className="w-full h-24 flex flex-col items-center justify-center text-center gap-1"
+                          size="lg"
+                          onClick={handleFiveMinWarning}
+                          disabled={selectedPassengers.length === 0 || sendingFiveMinWarn}
+                        >
+                          <Clock className="h-6 w-6" />
+                          <span className="font-semibold leading-tight">
+                            <span className="block">5 Min</span>
+                            <span className="block">Warning</span>
+                          </span>
+                        </Button>
+                      )}
 
-                      <Button
-                        variant="default"
-                        className="w-full h-24 flex flex-col items-center justify-center text-center gap-1"
-                        size="lg"
-                        onClick={handleDropOff}
-                        disabled={selectedPassengers.length === 0 || sendingDropOff}
-                      >
-                        <CheckCircle2 className="h-6 w-6" />
-                        <span className="font-semibold leading-tight">
-                          <span className="block">Drop</span>
-                          <span className="block">Off</span>
-                        </span>
-                      </Button>
-
-                      <Button
-                        variant="outline"
-                        className="w-full h-24 flex flex-col items-center justify-center text-center gap-1"
-                        size="lg"
-                        onClick={handleAddPickup}
-                      >
-                        <MapPin className="h-6 w-6" />
-                        <span className="font-semibold leading-tight">
-                          <span className="block">Add</span>
-                          <span className="block">Pickup</span>
-                        </span>
-                      </Button>
-
-                      <Button
-                        variant="destructive"
-                        className="w-full h-24 flex flex-col items-center justify-center text-center gap-1"
-                        size="lg"
-                        onClick={() => setShowDelayDialog(true)}
-                        disabled={selectedPassengers.length === 0}
-                      >
-                        <AlertCircle className="h-6 w-6" />
-                        <span className="font-semibold leading-tight">
-                          <span className="block">Report</span>
-                          <span className="block">Delay</span>
-                        </span>
-                      </Button>
+                      {/* Drop off button with big check state */}
+                      { dropOffCheck ? (
+                        <div className="w-full h-24 flex items-center justify-center rounded-md bg-emerald-600 text-white shadow-sm">
+                          <div className="flex flex-col items-center gap-1">
+                            <CheckCircle2 className="h-8 w-8" />
+                            <span className="font-semibold leading-tight">
+                              <span className="block">Dropped</span>
+                              <span className="block">Off</span>
+                            </span>
+                          </div>
+                        </div>
+                      ) : (
+                        <Button
+                          variant="default"
+                          className="w-full h-24 flex flex-col items-center justify-center text-center gap-1"
+                          size="lg"
+                          onClick={handleDropOff}
+                          disabled={selectedPassengers.length === 0 || sendingDropOff}
+                        >
+                          <CheckCircle2 className="h-6 w-6" />
+                          <span className="font-semibold leading-tight">
+                            <span className="block">Drop</span>
+                            <span className="block">Off</span>
+                          </span>
+                        </Button>
+                      )}
                     </div>
 
                     {currentTask?.five_min_warning_sent_at && (
