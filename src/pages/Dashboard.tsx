@@ -186,18 +186,19 @@ export default function Dashboard() {
     if (current) {
       setCurrentTask(current);
       
-      // Parse passenger IDs from the task's passenger names
-      if (current.passenger_name && passengersData) {
+      // Prefer persisted passenger IDs; fall back to parsing names if absent
+      if (Array.isArray((current as any).passenger_ids) && (current as any).passenger_ids.length > 0) {
+        setSelectedPassengers((current as any).passenger_ids as string[]);
+      } else if (current.passenger_name && passengersData) {
         const taskPassengerNames = current.passenger_name.split(" & ").map((n: string) => n.trim());
         const matchedPassengerIds = passengersData
           .filter(p => taskPassengerNames.includes(p.name))
           .map(p => p.id);
-        // Only update selection if we matched at least one passenger; otherwise keep previous selection
         if (matchedPassengerIds.length > 0) {
           setSelectedPassengers(matchedPassengerIds);
         }
       } else {
-        // Do not clear selection here; keep current selection to avoid disabling buttons unexpectedly
+        // Keep existing selection if nothing to derive from
       }
       
       // If trip already started, switch to travel mode
@@ -225,6 +226,15 @@ export default function Dashboard() {
     } else {
       setEtaEdit("");
     }
+  }
+
+  // Helper: build passenger names from persisted IDs
+  function passengerNamesFromIds(ids: string[] | undefined | null): string {
+    if (!ids || ids.length === 0) return "";
+    const names = ids
+      .map(id => passengers.find(p => p.id === id)?.name)
+      .filter((n): n is string => Boolean(n));
+    return names.join(" & ");
   }
 
   function handleLetsGoClick() {
@@ -297,6 +307,8 @@ export default function Dashboard() {
       eta: eta,
       trip_started_at: currentTask?.trip_started_at || new Date().toISOString(),
       accepted_at: currentTask?.accepted_at || new Date().toISOString(),
+      // NEW: persist selected passenger IDs
+      passenger_ids: selectedPassengers,
     };
 
     let taskId = currentTask?.id;
@@ -370,9 +382,15 @@ export default function Dashboard() {
       return;
     }
 
+    const tripPassengerNames =
+      passengerNamesFromIds((currentTask as any)?.passenger_ids) ||
+      (currentTask?.passenger_name ?? "");
+
     await sendTelegramTemplate("eta_update", {
       driver: currentDriver.name,
       eta: etaEdit,
+      // Include full trip passenger list
+      passenger: tripPassengerNames,
     });
 
     toast({ title: "ETA updated and message sent." });
@@ -394,9 +412,14 @@ export default function Dashboard() {
       return;
     }
 
+    const tripPassengerNames =
+      passengerNamesFromIds((currentTask as any)?.passenger_ids) ||
+      (currentTask?.passenger_name ?? "");
+
     await sendTelegramTemplate("delay", {
       driver: currentDriver.name,
-      passenger: passenger.name,
+      // Include all trip passengers alongside the delayed one for clarity
+      passenger: `${passenger.name} (Trip: ${tripPassengerNames})`,
       delay: "",
     });
 
@@ -440,9 +463,14 @@ export default function Dashboard() {
       : undefined;
     const dropoffName = matchedDest ? matchedDest.name : dropoffAddress;
 
+    const tripPassengerNames =
+      passengerNamesFromIds((currentTask as any)?.passenger_ids) ||
+      (currentTask?.passenger_name ?? "");
+
     await sendTelegramTemplate("five_min_warning", {
       driver: currentDriver.name,
-      passenger: currentTask.passenger_name,
+      // Always include all passengers chosen for the trip
+      passenger: tripPassengerNames,
       location: dropoffName ?? undefined,
     });
 
@@ -494,14 +522,16 @@ export default function Dashboard() {
         : undefined;
       const dropoffName = matchedDest ? matchedDest.name : dropoffAddress;
 
+      const tripPassengerNames =
+        passengerNamesFromIds((currentTask as any)?.passenger_ids) ||
+        (currentTask?.passenger_name ?? "");
+
       await sendTelegramTemplate("drop_off", {
         driver: currentDriver.name,
-        passenger: droppedPassengerNames,
+        // Include dropped off passengers + full trip list
+        passenger: `${droppedPassengerNames} (Trip: ${tripPassengerNames})`,
         location: dropoffName ?? undefined,
       });
-
-      // ADDED: show big check right away
-      setDropOffCheck(true);
 
       toast({ title: "All passengers dropped off! Trip completed." });
       await loadData();
