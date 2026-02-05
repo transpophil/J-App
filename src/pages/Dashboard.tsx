@@ -192,9 +192,12 @@ export default function Dashboard() {
         const matchedPassengerIds = passengersData
           .filter(p => taskPassengerNames.includes(p.name))
           .map(p => p.id);
-        setSelectedPassengers(matchedPassengerIds);
+        // Only update selection if we matched at least one passenger; otherwise keep previous selection
+        if (matchedPassengerIds.length > 0) {
+          setSelectedPassengers(matchedPassengerIds);
+        }
       } else {
-        setSelectedPassengers([]);
+        // Do not clear selection here; keep current selection to avoid disabling buttons unexpectedly
       }
       
       // If trip already started, switch to travel mode
@@ -415,7 +418,8 @@ export default function Dashboard() {
   }
 
   async function handleFiveMinWarning() {
-    if (!currentTask || !currentDriver || selectedPassengers.length === 0) return;
+    // Allow 5-min warning regardless of current selection
+    if (!currentTask || !currentDriver) return;
     if (sendingFiveMinWarn) return;
     setSendingFiveMinWarn(true);
 
@@ -872,7 +876,8 @@ export default function Dashboard() {
                           className="w-full h-24 flex flex-col items-center justify-center text-center gap-1"
                           size="lg"
                           onClick={handleFiveMinWarning}
-                          disabled={selectedPassengers.length === 0 || sendingFiveMinWarn}
+                          // Remove dependency on selectedPassengers so the button is always available
+                          disabled={sendingFiveMinWarn}
                         >
                           <Clock className="h-6 w-6" />
                           <span className="font-semibold leading-tight">
@@ -882,7 +887,7 @@ export default function Dashboard() {
                         </Button>
                       )}
 
-                      {/* Drop off button with big check state */}
+                      {/* Drop off button with big check state (still requires selection) */}
                       { dropOffCheck ? (
                         <div className="w-full h-24 flex items-center justify-center rounded-md bg-emerald-600 text-white shadow-sm">
                           <div className="flex flex-col items-center gap-1">
@@ -909,7 +914,7 @@ export default function Dashboard() {
                         </Button>
                       )}
 
-                      {/* RESTORED: Add Pickup */}
+                      {/* Add Pickup */}
                       <Button
                         variant="outline"
                         className="w-full h-24 flex flex-col items-center justify-center text-center gap-1"
@@ -923,7 +928,7 @@ export default function Dashboard() {
                         </span>
                       </Button>
 
-                      {/* RESTORED: Report Delay */}
+                      {/* Report Delay */}
                       <Button
                         variant="destructive"
                         className="w-full h-24 flex flex-col items-center justify-center text-center gap-1"
