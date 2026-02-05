@@ -265,101 +265,101 @@ export default function Dashboard() {
       return;
     }
 
-    let destinationAddress = "";
-    let destinationName = "";
-    if (selectedDestination) {
-      const destinationObj = destinations.find((d) => d.id === selectedDestination);
-      if (!destinationObj || !destinationObj.address) {
-        toast({ title: "Invalid destination selected", variant: "destructive" });
-        setSendingLetsGo(false);
+    try {
+      let destinationAddress = "";
+      let destinationName = "";
+      if (selectedDestination) {
+        const destinationObj = destinations.find((d) => d.id === selectedDestination);
+        if (!destinationObj || !destinationObj.address) {
+          toast({ title: "Invalid destination selected", variant: "destructive" });
+          return;
+        }
+        destinationAddress = destinationObj.address;
+        destinationName = destinationObj.name;
+      } else {
+        destinationAddress = freeDestination.trim();
+        destinationName = freeDestination.trim();
+      }
+
+      const selectedPassengerData = passengers.filter(p => selectedPassengers.includes(p.id));
+      if (selectedPassengerData.length === 0) {
+        toast({ title: "No passengers selected", variant: "destructive" });
         return;
       }
-      destinationAddress = destinationObj.address;
-      destinationName = destinationObj.name;
-    } else {
-      destinationAddress = freeDestination.trim();
-      destinationName = freeDestination.trim();
-    }
 
-    const selectedPassengerData = passengers.filter(p => selectedPassengers.includes(p.id));
-    if (selectedPassengerData.length === 0) {
-      toast({ title: "No passengers selected", variant: "destructive" });
+      const passengerNames = selectedPassengerData.map(p => p.name).join(" & ");
+      const pickupLocations = selectedPassengerData.map(p => p.default_pickup_location).join(", ");
+
+      const finalPassengerNames = currentTask 
+        ? `${currentTask.passenger_name} & ${passengerNames}`
+        : passengerNames;
+      const finalPickupLocations = currentTask
+        ? `${currentTask.pickup_location}, ${pickupLocations}`
+        : pickupLocations;
+
+      const taskData = {
+        passenger_name: finalPassengerNames,
+        pickup_location: finalPickupLocations,
+        dropoff_location: destinationAddress,
+        status: "on_board",
+        driver_id: currentDriver.id,
+        eta: eta,
+        trip_started_at: currentTask?.trip_started_at || new Date().toISOString(),
+        accepted_at: currentTask?.accepted_at || new Date().toISOString(),
+        passenger_ids: selectedPassengers,
+      };
+
+      let taskId = currentTask?.id;
+      if (currentTask) {
+        const { error } = await supabase
+          .from("tasks")
+          .update(taskData)
+          .eq("id", currentTask.id);
+        if (error) {
+          console.error("Error updating task:", error);
+          toast({ title: "Failed to start trip", description: error.message || "Unknown error", variant: "destructive" });
+          return;
+        }
+      } else {
+        const { data, error } = await supabase
+          .from("tasks")
+          .insert([taskData])
+          .select()
+          .single();
+        if (error) {
+          console.error("Error creating task:", error);
+          toast({ title: "Failed to start trip", description: error.message || "Unknown error", variant: "destructive" });
+          return;
+        }
+        if (!data) {
+          toast({ title: "Failed to start trip: No data returned", variant: "destructive" });
+          return;
+        }
+        taskId = data.id;
+      }
+
+      await sendTelegramTemplate("lets_go", {
+        driver: currentDriver.name,
+        passenger: passengerNames,
+        eta: eta,
+        location: destinationName,
+      });
+
+      const waypointList = selectedPassengerData
+        .map(p => p.default_pickup_location)
+        .filter((loc): loc is string => Boolean(loc));
+      openGoogleMapsApp(destinationAddress, waypointList);
+
+      toast({ title: "Trip started! Message sent to group." });
+      setShowEtaDialog(false);
+      setTripMode("travel");
+      loadData();
+    } catch (err: any) {
+      console.error("handleConfirmTrip error:", err);
+      toast({ title: "Failed to start trip", description: err?.message || "Unknown error", variant: "destructive" });
+    } finally {
       setSendingLetsGo(false);
-      return;
     }
-
-    const passengerNames = selectedPassengerData.map(p => p.name).join(" & ");
-    const pickupLocations = selectedPassengerData.map(p => p.default_pickup_location).join(", ");
-
-    const finalPassengerNames = currentTask 
-      ? `${currentTask.passenger_name} & ${passengerNames}`
-      : passengerNames;
-    const finalPickupLocations = currentTask
-      ? `${currentTask.pickup_location}, ${pickupLocations}`
-      : pickupLocations;
-
-    const taskData = {
-      passenger_name: finalPassengerNames,
-      pickup_location: finalPickupLocations,
-      dropoff_location: destinationAddress,
-      status: "on_board",
-      driver_id: currentDriver.id,
-      eta: eta,
-      trip_started_at: currentTask?.trip_started_at || new Date().toISOString(),
-      accepted_at: currentTask?.accepted_at || new Date().toISOString(),
-      // NEW: persist selected passenger IDs
-      passenger_ids: selectedPassengers,
-    };
-
-    let taskId = currentTask?.id;
-    if (currentTask) {
-      const { error } = await supabase
-        .from("tasks")
-        .update(taskData)
-        .eq("id", currentTask.id);
-      if (error) {
-        console.error("Error updating task:", error);
-        toast({ title: "Failed to start trip", description: error.message || "Unknown error", variant: "destructive" });
-        setSendingLetsGo(false);
-        return;
-      }
-    } else {
-      const { data, error } = await supabase
-        .from("tasks")
-        .insert([taskData])
-        .select()
-        .single();
-      if (error) {
-        console.error("Error creating task:", error);
-        toast({ title: "Failed to start trip", description: error.message || "Unknown error", variant: "destructive" });
-        setSendingLetsGo(false);
-        return;
-      }
-      if (!data) {
-        toast({ title: "Failed to start trip: No data returned", variant: "destructive" });
-        setSendingLetsGo(false);
-        return;
-      }
-      taskId = data.id;
-    }
-
-    await sendTelegramTemplate("lets_go", {
-      driver: currentDriver.name,
-      passenger: passengerNames,
-      eta: eta,
-      location: destinationName,
-    });
-
-    const waypointList = selectedPassengerData
-      .map(p => p.default_pickup_location)
-      .filter((loc): loc is string => Boolean(loc));
-    openGoogleMapsApp(destinationAddress, waypointList);
-
-    toast({ title: "Trip started! Message sent to group." });
-    setShowEtaDialog(false);
-    setTripMode("travel");
-    setSendingLetsGo(false);
-    loadData();
   }
 
   async function handleEtaUpdate() {
@@ -370,32 +370,36 @@ export default function Dashboard() {
     if (sendingEtaUpdate) return;
     setSendingEtaUpdate(true);
 
-    const { error } = await supabase
-      .from("tasks")
-      .update({ eta: etaEdit, updated_at: new Date().toISOString() })
-      .eq("id", currentTask.id);
+    try {
+      const { error } = await supabase
+        .from("tasks")
+        .update({ eta: etaEdit, updated_at: new Date().toISOString() })
+        .eq("id", currentTask.id);
 
-    if (error) {
-      console.error("Error updating ETA:", error);
-      toast({ title: "Failed to update ETA", description: error.message || "Unknown error", variant: "destructive" });
+      if (error) {
+        console.error("Error updating ETA:", error);
+        toast({ title: "Failed to update ETA", description: error.message || "Unknown error", variant: "destructive" });
+        return;
+      }
+
+      const tripPassengerNames =
+        passengerNamesFromIds((currentTask as any)?.passenger_ids) ||
+        (currentTask?.passenger_name ?? "");
+
+      await sendTelegramTemplate("eta_update", {
+        driver: currentDriver.name,
+        eta: etaEdit,
+        passenger: tripPassengerNames,
+      });
+
+      toast({ title: "ETA updated and message sent." });
+      loadData();
+    } catch (err: any) {
+      console.error("handleEtaUpdate error:", err);
+      toast({ title: "Failed to update ETA", description: err?.message || "Unknown error", variant: "destructive" });
+    } finally {
       setSendingEtaUpdate(false);
-      return;
     }
-
-    const tripPassengerNames =
-      passengerNamesFromIds((currentTask as any)?.passenger_ids) ||
-      (currentTask?.passenger_name ?? "");
-
-    await sendTelegramTemplate("eta_update", {
-      driver: currentDriver.name,
-      eta: etaEdit,
-      // Include full trip passenger list
-      passenger: tripPassengerNames,
-    });
-
-    toast({ title: "ETA updated and message sent." });
-    setSendingEtaUpdate(false);
-    loadData();
   }
 
   async function handleDelay() {
@@ -406,28 +410,32 @@ export default function Dashboard() {
     if (sendingDelay) return;
     setSendingDelay(true);
 
-    const passenger = passengers.find(p => p.id === delayPassenger);
-    if (!passenger) {
+    try {
+      const passenger = passengers.find(p => p.id === delayPassenger);
+      if (!passenger) {
+        return;
+      }
+
+      const tripPassengerNames =
+        passengerNamesFromIds((currentTask as any)?.passenger_ids) ||
+        (currentTask?.passenger_name ?? "");
+
+      await sendTelegramTemplate("delay", {
+        driver: currentDriver.name,
+        passenger: `${passenger.name} (Trip: ${tripPassengerNames})`,
+        delay: "",
+      });
+
+      toast({ title: "Delay notification sent to group." });
+      setDelayPassenger("");
+      setShowDelaySelection(false);
+      setShowDelayDialog(false);
+    } catch (err: any) {
+      console.error("handleDelay error:", err);
+      toast({ title: "Failed to send delay notice", description: err?.message || "Unknown error", variant: "destructive" });
+    } finally {
       setSendingDelay(false);
-      return;
     }
-
-    const tripPassengerNames =
-      passengerNamesFromIds((currentTask as any)?.passenger_ids) ||
-      (currentTask?.passenger_name ?? "");
-
-    await sendTelegramTemplate("delay", {
-      driver: currentDriver.name,
-      // Include all trip passengers alongside the delayed one for clarity
-      passenger: `${passenger.name} (Trip: ${tripPassengerNames})`,
-      delay: "",
-    });
-
-    toast({ title: "Delay notification sent to group." });
-    setDelayPassenger("");
-    setShowDelaySelection(false);
-    setShowDelayDialog(false);
-    setSendingDelay(false);
   }
 
   function togglePassengerSelection(passengerId: string) {
@@ -446,40 +454,44 @@ export default function Dashboard() {
     if (sendingFiveMinWarn) return;
     setSendingFiveMinWarn(true);
 
-    const { error } = await supabase
-      .from("tasks")
-      .update({ five_min_warning_sent_at: new Date().toISOString() })
-      .eq("id", currentTask.id);
+    try {
+      const { error } = await supabase
+        .from("tasks")
+        .update({ five_min_warning_sent_at: new Date().toISOString() })
+        .eq("id", currentTask.id);
 
-    if (error) {
-      toast({ title: "Failed to update task", variant: "destructive" });
+      if (error) {
+        toast({ title: "Failed to update task", variant: "destructive" });
+        return;
+      }
+
+      const dropoffAddress = currentTask?.dropoff_location;
+      const matchedDest = dropoffAddress
+        ? destinations.find((d) => d.address === dropoffAddress)
+        : undefined;
+      const dropoffName = matchedDest ? matchedDest.name : dropoffAddress;
+
+      const tripPassengerNames =
+        passengerNamesFromIds((currentTask as any)?.passenger_ids) ||
+        (currentTask?.passenger_name ?? "");
+
+      await sendTelegramTemplate("five_min_warning", {
+        driver: currentDriver.name,
+        passenger: tripPassengerNames,
+        location: dropoffName ?? undefined,
+      });
+
+      // Show big check right away
+      setFiveMinSentCheck(true);
+
+      toast({ title: "5-minute warning sent to group." });
+      loadData();
+    } catch (err: any) {
+      console.error("handleFiveMinWarning error:", err);
+      toast({ title: "Failed to send 5-minute warning", description: err?.message || "Unknown error", variant: "destructive" });
+    } finally {
       setSendingFiveMinWarn(false);
-      return;
     }
-
-    const dropoffAddress = currentTask?.dropoff_location;
-    const matchedDest = dropoffAddress
-      ? destinations.find((d) => d.address === dropoffAddress)
-      : undefined;
-    const dropoffName = matchedDest ? matchedDest.name : dropoffAddress;
-
-    const tripPassengerNames =
-      passengerNamesFromIds((currentTask as any)?.passenger_ids) ||
-      (currentTask?.passenger_name ?? "");
-
-    await sendTelegramTemplate("five_min_warning", {
-      driver: currentDriver.name,
-      // Always include all passengers chosen for the trip
-      passenger: tripPassengerNames,
-      location: dropoffName ?? undefined,
-    });
-
-    // ADDED: show big check right away
-    setFiveMinSentCheck(true);
-
-    toast({ title: "5-minute warning sent to group." });
-    setSendingFiveMinWarn(false);
-    loadData();
   }
 
   async function handleDropOff() {
