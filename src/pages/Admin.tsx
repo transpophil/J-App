@@ -13,6 +13,7 @@ import { useToast } from "@/hooks/use-toast";
 import { ArrowLeft, Plus, Trash2, Edit } from "lucide-react";
 import logo from "@/assets/j-app-logo.jpg";
 import PassengerSortable from "@/components/PassengerSortable";
+import DriverSortable from "@/components/DriverSortable";
 
 export default function Admin() {
   const navigate = useNavigate();
@@ -127,6 +128,23 @@ export default function Admin() {
       settingsMap[s.setting_key] = s.setting_value;
     });
     setSettings(settingsMap);
+
+    // APPLY: driver_order to drivers list in Admin view
+    if (settingsMap["driver_order"]) {
+      try {
+        const orderIds: string[] = JSON.parse(settingsMap["driver_order"]);
+        const indexMap = new Map(orderIds.map((id, i) => [id, i]));
+        const orderedDrivers = [...(driversRes.data || [])].sort((a: any, b: any) => {
+          const ai = indexMap.has(a.id) ? (indexMap.get(a.id) as number) : Number.POSITIVE_INFINITY;
+          const bi = indexMap.has(b.id) ? (indexMap.get(b.id) as number) : Number.POSITIVE_INFINITY;
+          if (ai !== bi) return ai - bi;
+          return (a.name || "").localeCompare(b.name || "");
+        });
+        setDrivers(orderedDrivers);
+      } catch {
+        // ignore parse errors
+      }
+    }
 
     let orderedPassengers = passengersRes.data || [];
     const orderStr = settingsMap["passenger_order"];
@@ -521,6 +539,36 @@ export default function Admin() {
     }
   }
 
+  async function saveDriverOrder() {
+    const orderIds = drivers.map((d) => d.id);
+    const value = JSON.stringify(orderIds);
+    const { data: existing } = await supabase
+      .from("app_settings")
+      .select("*")
+      .eq("setting_key", "driver_order")
+      .maybeSingle();
+
+    if (existing) {
+      const { error } = await supabase
+        .from("app_settings")
+        .update({ setting_value: value })
+        .eq("setting_key", "driver_order");
+      if (error) {
+        toast({ title: "Failed to save driver order", description: error.message, variant: "destructive" });
+        return;
+      }
+    } else {
+      const { error } = await supabase
+        .from("app_settings")
+        .insert([{ setting_key: "driver_order", setting_value: value }]);
+      if (error) {
+        toast({ title: "Failed to save driver order", description: error.message, variant: "destructive" });
+        return;
+      }
+    }
+    toast({ title: "Driver order saved" });
+  }
+
   function escapeCSV(value: any): string {
     const str = value === null || value === undefined ? "" : String(value);
     if (/[",\n]/.test(str)) {
@@ -858,39 +906,27 @@ export default function Admin() {
                 Add Driver
               </Button>
             </div>
-            <div className="space-y-3">
-              {drivers.map((driver) => (
-                <Card key={driver.id} className="p-4">
-                  <div className="flex justify-between items-center">
-                    <div>
-                      <h3 className="font-semibold text-lg">{driver.name}</h3>
-                      <p className="text-sm text-muted-foreground">{driver.email || "No email"}</p>
-                      <p className="text-sm text-muted-foreground">{driver.phone || "No phone"}</p>
-                    </div>
-                    <div className="flex gap-2">
-                      <Button
-                        size="icon"
-                        variant="outline"
-                        onClick={() => {
-                          setEditingDriver(driver);
-                          setDriverForm({
-                            name: driver.name,
-                            email: driver.email || "",
-                            phone: driver.phone || "",
-                            pin_password: driver.pin_password,
-                          });
-                          setShowDriverDialog(true);
-                        }}
-                      >
-                        <Edit className="h-4 w-4" />
-                      </Button>
-                      <Button size="icon" variant="destructive" onClick={() => deleteDriver(driver.id)}>
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
-                    </div>
-                  </div>
-                </Card>
-              ))}
+
+            <DriverSortable
+              drivers={drivers}
+              onReorder={(next) => setDrivers(next)}
+              onEdit={(driver) => {
+                setEditingDriver(driver);
+                setDriverForm({
+                  name: driver.name,
+                  email: driver.email || "",
+                  phone: driver.phone || "",
+                  pin_password: driver.pin_password,
+                });
+                setShowDriverDialog(true);
+              }}
+              onDelete={(id) => deleteDriver(id)}
+            />
+
+            <div className="flex justify-end">
+              <Button variant="outline" onClick={saveDriverOrder}>
+                Save Order
+              </Button>
             </div>
           </TabsContent>
 
