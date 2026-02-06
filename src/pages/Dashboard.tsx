@@ -902,32 +902,25 @@ export default function Dashboard() {
                     </div>
 
                     <div className="grid grid-cols-2 gap-4">
-                      {/* Five-minute warning button with big check state */}
-                      { (currentTask?.five_min_warning_sent_at != null) || fiveMinSentCheck ? (
-                        <div className="w-full h-24 flex items-center justify-center rounded-md bg-emerald-600 text-white shadow-sm">
-                          <div className="flex flex-col items-center gap-1">
-                            <CheckCircle2 className="h-8 w-8" />
-                            <span className="font-semibold leading-tight">
-                              <span className="block">5 Min</span>
-                              <span className="block">Sent</span>
-                            </span>
+                      {/* Five-minute warning: always show the button and display a 'Sent' indicator after first press */}
+                      <Button
+                        className="w-full h-24 flex flex-col items-center justify-center text-center gap-1"
+                        size="lg"
+                        onClick={handleFiveMinWarning}
+                        disabled={sendingFiveMinWarn}
+                      >
+                        <Clock className="h-6 w-6" />
+                        <span className="font-semibold leading-tight">
+                          <span className="block">5 Min</span>
+                          <span className="block">Warning</span>
+                        </span>
+                        {(currentTask?.five_min_warning_sent_at != null || fiveMinSentCheck) && (
+                          <div className="mt-1 flex items-center gap-1 text-emerald-600">
+                            <CheckCircle2 className="h-4 w-4" />
+                            <span className="text-xs font-semibold">Sent</span>
                           </div>
-                        </div>
-                      ) : (
-                        <Button
-                          className="w-full h-24 flex flex-col items-center justify-center text-center gap-1"
-                          size="lg"
-                          onClick={handleFiveMinWarning}
-                          // Remove dependency on selectedPassengers so the button is always available
-                          disabled={sendingFiveMinWarn}
-                        >
-                          <Clock className="h-6 w-6" />
-                          <span className="font-semibold leading-tight">
-                            <span className="block">5 Min</span>
-                            <span className="block">Warning</span>
-                          </span>
-                        </Button>
-                      )}
+                        )}
+                      </Button>
 
                       {/* Drop off button with big check state (still requires selection) */}
                       { dropOffCheck ? (
