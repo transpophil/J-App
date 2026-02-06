@@ -30,8 +30,38 @@ export default function Login() {
   }, [currentDriver, navigate]);
 
   async function loadDrivers() {
-    const { data } = await supabase.from("drivers").select("*").order("name");
-    setDrivers(data || []);
+    // Load drivers without ordering, we will apply saved order if present
+    const { data: driversData } = await supabase.from("drivers").select("*");
+
+    // Get saved driver order from app_settings
+    const { data: orderSetting } = await supabase
+      .from("app_settings")
+      .select("setting_value")
+      .eq("setting_key", "driver_order")
+      .maybeSingle();
+
+    let ordered = driversData || [];
+
+    if (orderSetting?.setting_value) {
+      try {
+        const orderIds: string[] = JSON.parse(orderSetting.setting_value);
+        const indexMap = new Map(orderIds.map((id, i) => [id, i]));
+        ordered = [...ordered].sort((a: any, b: any) => {
+          const ai = indexMap.has(a.id) ? (indexMap.get(a.id) as number) : Number.POSITIVE_INFINITY;
+          const bi = indexMap.has(b.id) ? (indexMap.get(b.id) as number) : Number.POSITIVE_INFINITY;
+          if (ai !== bi) return ai - bi;
+          return (a.name || "").localeCompare(b.name || "");
+        });
+      } catch {
+        // Fallback to alphabetical if the saved order is invalid
+        ordered = [...ordered].sort((a: any, b: any) => (a.name || "").localeCompare(b.name || ""));
+      }
+    } else {
+      // No saved order: alphabetical
+      ordered = [...ordered].sort((a: any, b: any) => (a.name || "").localeCompare(b.name || ""));
+    }
+
+    setDrivers(ordered);
   }
 
   function handleDriverSelect(driver: any) {
