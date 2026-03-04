@@ -34,6 +34,14 @@ export default function Admin() {
   const [editingTask, setEditingTask] = useState<any>(null);
   const [editingDriver, setEditingDriver] = useState<any>(null);
   const [editingPassenger, setEditingPassenger] = useState<any>(null);
+  const [destinationForm, setDestinationForm] = useState({
+    name: "",
+    address: "",
+  });
+  const [passengerForm, setPassengerForm] = useState({
+    name: "",
+    default_pickup_location: "",
+  });
   // ADDED: project picture file state
   const [projectFile, setProjectFile] = useState<File | null>(null);
 
