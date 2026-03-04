@@ -14,6 +14,7 @@ import { ArrowLeft, Plus, Trash2, Edit } from "lucide-react";
 import logo from "@/assets/j-app-logo.jpg";
 import PassengerSortable from "@/components/PassengerSortable";
 import DriverSortable from "@/components/DriverSortable";
+import DestinationSortable from "@/components/DestinationSortable";
 
 export default function Admin() {
   const navigate = useNavigate();
@@ -33,6 +34,7 @@ export default function Admin() {
   const [editingTask, setEditingTask] = useState<any>(null);
   const [editingDriver, setEditingDriver] = useState<any>(null);
   const [editingPassenger, setEditingPassenger] = useState<any>(null);
+  const [editingDestination, setEditingDestination] = useState<any>(null);
   const [destinationForm, setDestinationForm] = useState({
     name: "",
     address: "",
@@ -146,6 +148,23 @@ export default function Admin() {
       }
     }
 
+    // APPLY: destination_order to destinations list in Admin view
+    let destinationsList = destinationsRes.data || [];
+    if (settingsMap["destination_order"]) {
+      try {
+        const orderIds: string[] = JSON.parse(settingsMap["destination_order"]);
+        const indexMap = new Map(orderIds.map((id, i) => [id, i]));
+        destinationsList = [...destinationsList].sort((a: any, b: any) => {
+          const ai = indexMap.has(a.id) ? (indexMap.get(a.id) as number) : Number.POSITIVE_INFINITY;
+          const bi = indexMap.has(b.id) ? (indexMap.get(b.id) as number) : Number.POSITIVE_INFINITY;
+          if (ai !== bi) return ai - bi;
+          return (a.name || "").localeCompare(b.name || "");
+        });
+      } catch {
+        // ignore parse errors
+      }
+    }
+
     let orderedPassengers = passengersRes.data || [];
     const orderStr = settingsMap["passenger_order"];
     if (orderStr) {
@@ -185,7 +204,7 @@ export default function Admin() {
     }
 
     setTemplates(templatesData);
-    setDestinations(destinationsRes.data || []);
+    setDestinations(destinationsList);
   }
 
   async function createOrUpdateTask() {
@@ -567,6 +586,36 @@ export default function Admin() {
       }
     }
     toast({ title: "Driver order saved" });
+  }
+
+  async function saveDestinationOrder() {
+    const orderIds = destinations.map((d) => d.id);
+    const value = JSON.stringify(orderIds);
+    const { data: existing } = await supabase
+      .from("app_settings")
+      .select("*")
+      .eq("setting_key", "destination_order")
+      .maybeSingle();
+
+    if (existing) {
+      const { error } = await supabase
+        .from("app_settings")
+        .update({ setting_value: value })
+        .eq("setting_key", "destination_order");
+      if (error) {
+        toast({ title: "Failed to save order", description: error.message, variant: "destructive" });
+        return;
+      }
+    } else {
+      const { error } = await supabase
+        .from("app_settings")
+        .insert([{ setting_key: "destination_order", setting_value: value }]);
+      if (error) {
+        toast({ title: "Failed to save order", description: error.message, variant: "destructive" });
+        return;
+      }
+    }
+    toast({ title: "Destination order saved" });
   }
 
   function escapeCSV(value: any): string {
@@ -978,42 +1027,23 @@ export default function Admin() {
                 Add Destination
               </Button>
             </div>
-            <div className="space-y-3">
-              {destinations.length === 0 ? (
-                <Card className="p-6 text-center text-muted-foreground">
-                  No destinations yet. Use "Add Destination" to create one.
-                </Card>
-              ) : (
-                destinations.map((destination) => (
-                  <Card key={destination.id} className="p-4">
-                    <div className="flex justify-between items-center">
-                      <div>
-                        <h3 className="font-semibold text-lg">{destination.name}</h3>
-                        <p className="text-sm text-muted-foreground">{destination.address || "No address"}</p>
-                      </div>
-                      <div className="flex gap-2">
-                        <Button
-                          size="icon"
-                          variant="outline"
-                          onClick={() => {
-                            setEditingDestination(destination);
-                            setDestinationForm({
-                              name: destination.name,
-                              address: destination.address || "",
-                            });
-                            setShowDestinationDialog(true);
-                          }}
-                        >
-                          <Edit className="h-4 w-4" />
-                        </Button>
-                        <Button size="icon" variant="destructive" onClick={() => deleteDestination(destination.id)}>
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
-                      </div>
-                    </div>
-                  </Card>
-                ))
-              )}
+            <DestinationSortable
+              destinations={destinations}
+              onReorder={(next) => setDestinations(next)}
+              onEdit={(destination) => {
+                setEditingDestination(destination);
+                setDestinationForm({
+                  name: destination.name,
+                  address: destination.address || "",
+                });
+                setShowDestinationDialog(true);
+              }}
+              onDelete={(id) => deleteDestination(id)}
+            />
+            <div className="flex justify-end">
+              <Button variant="outline" onClick={saveDestinationOrder}>
+                Save Order
+              </Button>
             </div>
           </TabsContent>
 
