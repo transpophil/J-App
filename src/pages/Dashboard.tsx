@@ -139,7 +139,30 @@ export default function Dashboard() {
       .select("id, name, address")
       .order("name");
 
-    setDestinations(destinationsData || []);
+    // Apply saved destination order from app_settings
+    const { data: destinationOrderSetting } = await supabase
+      .from("app_settings")
+      .select("setting_value")
+      .eq("setting_key", "destination_order")
+      .maybeSingle();
+
+    let orderedDestinations = destinationsData || [];
+    if (destinationOrderSetting?.setting_value) {
+      try {
+        const orderIds: string[] = JSON.parse(destinationOrderSetting.setting_value);
+        const indexMap = new Map(orderIds.map((id, i) => [id, i]));
+        orderedDestinations = [...orderedDestinations].sort((a: any, b: any) => {
+          const ai = indexMap.has(a.id) ? (indexMap.get(a.id) as number) : Number.POSITIVE_INFINITY;
+          const bi = indexMap.has(b.id) ? (indexMap.get(b.id) as number) : Number.POSITIVE_INFINITY;
+          if (ai !== bi) return ai - bi;
+          return (a.name || "").localeCompare(b.name || "");
+        });
+      } catch {
+        // If parsing failed, keep name order
+      }
+    }
+
+    setDestinations(orderedDestinations);
 
     // ADDED: Load project picture URL from app_settings
     const { data: ppSetting } = await supabase
