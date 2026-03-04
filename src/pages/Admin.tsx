@@ -34,31 +34,6 @@ export default function Admin() {
   const [editingTask, setEditingTask] = useState<any>(null);
   const [editingDriver, setEditingDriver] = useState<any>(null);
   const [editingPassenger, setEditingPassenger] = useState<any>(null);
-  const [editingDestination, setEditingDestination] = useState<any>(null);
-  const [destinationForm, setDestinationForm] = useState({
-    name: "",
-    address: "",
-  });
-  const [taskForm, setTaskForm] = useState({
-    passenger_name: "",
-    pickup_location: "",
-    dropoff_location: "",
-    task_name: "",
-    notes: "",
-    deadline: "",
-  });
-  const [driverForm, setDriverForm] = useState({
-    name: "",
-    email: "",
-    phone: "",
-    pin_password: "",
-  });
-  const [passengerForm, setPassengerForm] = useState({
-    name: "",
-    default_pickup_location: "",
-  });
-  // ADDED: state for the destination being edited
-  const [editingDestination, setEditingDestination] = useState<any>(null);
   // ADDED: project picture file state
   const [projectFile, setProjectFile] = useState<File | null>(null);
 
