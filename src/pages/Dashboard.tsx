@@ -667,13 +667,13 @@ export default function Dashboard() {
       </header>
 
       <div className="container mx-auto px-4 py-8 max-w-3xl space-y-8">
-        {/* ADDED: Shared Project Picture (circular) */}
-        <div className="flex justify-center">
-          <div className="w-24 h-24 sm:w-28 sm:h-28 rounded-full overflow-hidden border border-border shadow-sm bg-card">
+        {/* Shared Project Banner */}
+        <div className="w-full overflow-hidden rounded-xl border border-border shadow-sm bg-card">
+          <div className="h-28 sm:h-36 w-full">
             <img
               src={projectPictureUrl || (logo as string)}
               alt="Project"
-              className="w-full h-full object-cover"
+              className="h-full w-full object-cover"
             />
           </div>
         </div>

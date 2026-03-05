@@ -1116,29 +1116,23 @@ export default function Admin() {
               {/* ADDED: Project Picture upload */}
               <div className="space-y-2">
                 <Label>Project Picture (JPEG/PNG, max 5 MB)</Label>
-                <div className="flex items-center gap-4">
-                  <div className="w-20 h-20 rounded-full overflow-hidden border border-border">
-                    {settings.project_picture_url ? (
-                      <img
-                        src={settings.project_picture_url}
-                        alt="Project"
-                        className="w-full h-full object-cover"
-                      />
-                    ) : (
-                      <img
-                        src={logo}
-                        alt="Placeholder"
-                        className="w-full h-full object-cover opacity-50"
-                      />
-                    )}
+
+                <div className="w-full overflow-hidden rounded-xl border border-border">
+                  <div className="h-32 sm:h-40 w-full">
+                    <img
+                      src={settings.project_picture_url ? settings.project_picture_url : logo}
+                      alt="Project"
+                      className="w-full h-full object-cover"
+                    />
                   </div>
-                  <div className="flex-1 flex items-center gap-2">
-                    <Input type="file" accept="image/png,image/jpeg" onChange={handleProjectFileChange} />
-                    <Button onClick={uploadProjectPicture} disabled={!projectFile}>Upload</Button>
-                    {settings.project_picture_url && (
-                      <Button variant="outline" onClick={clearProjectPicture}>Remove</Button>
-                    )}
-                  </div>
+                </div>
+
+                <div className="flex items-center gap-2">
+                  <Input type="file" accept="image/png,image/jpeg" onChange={handleProjectFileChange} />
+                  <Button onClick={uploadProjectPicture} disabled={!projectFile}>Upload</Button>
+                  {settings.project_picture_url && (
+                    <Button variant="outline" onClick={clearProjectPicture}>Remove</Button>
+                  )}
                 </div>
               </div>
 
