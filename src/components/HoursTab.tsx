@@ -4,7 +4,9 @@ import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { TimeWheel } from "@/components/TimeWheel";
-import { CheckCircle2, Clock, RotateCcw } from "lucide-react";
+import { Calendar } from "@/components/ui/calendar";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { CheckCircle2, Clock, RotateCcw, Calendar as CalendarIcon } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
 type DriverHourRow = {
@@ -29,8 +31,12 @@ function getLocalNowTime(date = new Date()) {
   return `${hh}:${mm}`;
 }
 
+function isoToLocalDate(isoDate: string) {
+  return new Date(`${isoDate}T00:00:00`);
+}
+
 function formatDayDate(isoDate: string) {
-  const d = new Date(`${isoDate}T00:00:00`);
+  const d = isoToLocalDate(isoDate);
   const day = d.toLocaleDateString(undefined, { weekday: "short" });
   const date = d.toLocaleDateString(undefined, { day: "2-digit", month: "2-digit", year: "numeric" });
   return `${day} ${date}`;
@@ -55,7 +61,7 @@ function addMinutes(time: string, minutesToAdd: number) {
 
 function getWeekStartIso(isoDate: string) {
   // Monday-based week (local)
-  const d = new Date(`${isoDate}T00:00:00`);
+  const d = isoToLocalDate(isoDate);
   const day = d.getDay(); // 0=Sun,1=Mon...
   const diff = (day + 6) % 7; // days since Monday
   d.setDate(d.getDate() - diff);
@@ -63,7 +69,7 @@ function getWeekStartIso(isoDate: string) {
 }
 
 function formatWeekRange(weekStartIso: string) {
-  const start = new Date(`${weekStartIso}T00:00:00`);
+  const start = isoToLocalDate(weekStartIso);
   const end = new Date(start);
   end.setDate(end.getDate() + 6);
 
@@ -91,8 +97,9 @@ export default function HoursTab({ driverId }: { driverId: string }) {
 
   const [rows, setRows] = useState<DriverHourRow[]>([]);
 
-  // Editing date (defaults to today, but can be any day from the list)
+  // Editing date (defaults to today, but can be any day)
   const [activeDate, setActiveDate] = useState<string>(today);
+  const [datePopoverOpen, setDatePopoverOpen] = useState(false);
 
   const [startTime, setStartTime] = useState(defaultNowTime);
   const [endTime, setEndTime] = useState(defaultNowTime);
@@ -273,13 +280,49 @@ export default function HoursTab({ driverId }: { driverId: string }) {
         <div className="flex items-start justify-between gap-4">
           <div>
             <h2 className="text-xl font-bold text-foreground">Hours</h2>
-            <p className="text-sm text-muted-foreground">{formatDayDate(activeDate)}</p>
-            {activeDate !== today && (
-              <Button variant="outline" size="sm" className="mt-2" onClick={() => setActiveDate(today)}>
-                Back to Today
-              </Button>
-            )}
+
+            <div className="mt-2 flex items-center gap-2">
+              <Popover open={datePopoverOpen} onOpenChange={setDatePopoverOpen}>
+                <PopoverTrigger asChild>
+                  <Button variant="outline" size="sm" className="gap-2">
+                    <CalendarIcon className="h-4 w-4" />
+                    {formatDayDate(activeDate)}
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0" align="start">
+                  <Calendar
+                    mode="single"
+                    selected={isoToLocalDate(activeDate)}
+                    onSelect={(d) => {
+                      if (!d) return;
+                      setActiveDate(getLocalIsoDate(d));
+                      setDatePopoverOpen(false);
+                    }}
+                    initialFocus
+                  />
+                  <div className="border-t border-border p-3">
+                    <Button
+                      variant="outline"
+                      className="w-full"
+                      onClick={() => {
+                        setActiveDate(today);
+                        setDatePopoverOpen(false);
+                      }}
+                    >
+                      Today
+                    </Button>
+                  </div>
+                </PopoverContent>
+              </Popover>
+
+              {activeDate !== today && (
+                <Button variant="ghost" size="sm" onClick={() => setActiveDate(today)}>
+                  Back to Today
+                </Button>
+              )}
+            </div>
           </div>
+
           <div className="flex items-center gap-2 text-muted-foreground">
             <Clock className="h-4 w-4" />
             <span className="text-sm">10:45 required</span>
@@ -306,7 +349,7 @@ export default function HoursTab({ driverId }: { driverId: string }) {
             {startSaved && !showStartWheel ? (
               <div className="flex items-center justify-between rounded-lg border border-border/60 bg-background/40 px-4 py-3">
                 <div>
-                  <div className="text-sm text-muted-foreground">Saved start</div>
+                  <div className="text-sm text-muted-foreground">Start time</div>
                   <div className="text-2xl font-bold text-foreground">{activeRow?.start_time}</div>
                 </div>
                 <Button variant="outline" size="sm" onClick={() => setShowStartWheel(true)}>
@@ -339,7 +382,6 @@ export default function HoursTab({ driverId }: { driverId: string }) {
                 <div>
                   <div className="text-sm text-muted-foreground">End time</div>
                   <div className="text-2xl font-bold text-foreground">{activeRow ? displayEndTime(activeRow) : "—"}</div>
-
                 </div>
                 <Button variant="outline" size="sm" onClick={() => setShowEndWheel(true)}>
                   Edit
