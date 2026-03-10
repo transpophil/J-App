@@ -68,6 +68,44 @@ export type Database = {
         }
         Relationships: []
       }
+      driver_hours: {
+        Row: {
+          created_at: string
+          driver_id: string
+          end_time: string | null
+          id: string
+          start_time: string | null
+          updated_at: string
+          work_date: string
+        }
+        Insert: {
+          created_at?: string
+          driver_id: string
+          end_time?: string | null
+          id?: string
+          start_time?: string | null
+          updated_at?: string
+          work_date: string
+        }
+        Update: {
+          created_at?: string
+          driver_id?: string
+          end_time?: string | null
+          id?: string
+          start_time?: string | null
+          updated_at?: string
+          work_date?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "driver_hours_driver_id_fkey"
+            columns: ["driver_id"]
+            isOneToOne: false
+            referencedRelation: "drivers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       message_templates: {
         Row: {
           created_at: string

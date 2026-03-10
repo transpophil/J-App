@@ -15,6 +15,7 @@ import { TimeWheel } from "@/components/TimeWheel";
 import { TaskSection } from "@/components/TaskSection";
 import TasksBoard from "@/components/TasksBoard";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import HoursTab from "@/components/HoursTab";
 import logo from "@/assets/j-app-logo.jpg";
 import backgroundImage from "@/assets/app-background.png";
 import { Input } from "@/components/ui/input";
@@ -688,6 +689,7 @@ export default function Dashboard() {
                 <span className="absolute -top-1 -right-1 h-2 w-2 rounded-full bg-destructive ring-2 ring-background" />
               )}
             </TabsTrigger>
+            <TabsTrigger value="hours" className="px-6 py-3 text-lg font-bold">Hours</TabsTrigger>
           </TabsList>
 
           <TabsContent value="tasks" className="mt-6">
@@ -1011,6 +1013,10 @@ export default function Dashboard() {
                 </Card>
               )}
             </div>
+          </TabsContent>
+
+          <TabsContent value="hours" className="mt-6">
+            {currentDriver && <HoursTab driverId={currentDriver.id} />}
           </TabsContent>
         </Tabs>
 
