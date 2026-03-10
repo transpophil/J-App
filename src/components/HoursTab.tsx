@@ -97,6 +97,9 @@ export default function HoursTab({ driverId }: { driverId: string }) {
   const [startTime, setStartTime] = useState(defaultNowTime);
   const [endTime, setEndTime] = useState(defaultNowTime);
 
+  const [showStartWheel, setShowStartWheel] = useState(true);
+  const [showEndWheel, setShowEndWheel] = useState(true);
+
   const [savingStart, setSavingStart] = useState(false);
   const [savingEnd, setSavingEnd] = useState(false);
 
@@ -141,10 +144,24 @@ export default function HoursTab({ driverId }: { driverId: string }) {
       const now = getLocalNowTime();
       setStartTime(now);
       setEndTime(now);
+      setShowStartWheel(true);
+      setShowEndWheel(true);
       return;
     }
-    if (activeRow.start_time) setStartTime(activeRow.start_time);
-    if (activeRow.end_time) setEndTime(activeRow.end_time);
+
+    if (activeRow.start_time) {
+      setStartTime(activeRow.start_time);
+      setShowStartWheel(false);
+    } else {
+      setShowStartWheel(true);
+    }
+
+    if (activeRow.end_time) {
+      setEndTime(activeRow.end_time);
+      setShowEndWheel(false);
+    } else {
+      setShowEndWheel(true);
+    }
   }, [activeRow, activeDate]);
 
   async function saveStart() {
@@ -167,6 +184,7 @@ export default function HoursTab({ driverId }: { driverId: string }) {
         return;
       }
 
+      setShowStartWheel(false);
       toast({ title: "Start time saved" });
       await loadHours();
     } finally {
@@ -194,6 +212,7 @@ export default function HoursTab({ driverId }: { driverId: string }) {
         return;
       }
 
+      setShowEndWheel(false);
       toast({ title: "End time saved" });
       await loadHours();
     } finally {
@@ -217,6 +236,8 @@ export default function HoursTab({ driverId }: { driverId: string }) {
       const now = getLocalNowTime();
       setStartTime(now);
       setEndTime(now);
+      setShowStartWheel(true);
+      setShowEndWheel(true);
     }
     await loadHours();
   }
@@ -254,12 +275,7 @@ export default function HoursTab({ driverId }: { driverId: string }) {
             <h2 className="text-xl font-bold text-foreground">Hours</h2>
             <p className="text-sm text-muted-foreground">{formatDayDate(activeDate)}</p>
             {activeDate !== today && (
-              <Button
-                variant="outline"
-                size="sm"
-                className="mt-2"
-                onClick={() => setActiveDate(today)}
-              >
+              <Button variant="outline" size="sm" className="mt-2" onClick={() => setActiveDate(today)}>
                 Back to Today
               </Button>
             )}
@@ -286,10 +302,25 @@ export default function HoursTab({ driverId }: { driverId: string }) {
                 </div>
               )}
             </div>
-            <TimeWheel value={startTime} onChange={setStartTime} />
-            <Button onClick={saveStart} disabled={savingStart} className="w-full">
-              {savingStart ? "Saving..." : "Save Start"}
-            </Button>
+
+            {startSaved && !showStartWheel ? (
+              <div className="flex items-center justify-between rounded-lg border border-border/60 bg-background/40 px-4 py-3">
+                <div>
+                  <div className="text-sm text-muted-foreground">Saved start</div>
+                  <div className="text-2xl font-bold text-foreground">{activeRow?.start_time}</div>
+                </div>
+                <Button variant="outline" size="sm" onClick={() => setShowStartWheel(true)}>
+                  Edit
+                </Button>
+              </div>
+            ) : (
+              <>
+                <TimeWheel value={startTime} onChange={setStartTime} />
+                <Button onClick={saveStart} disabled={savingStart} className="w-full">
+                  {savingStart ? "Saving..." : "Save Start"}
+                </Button>
+              </>
+            )}
           </div>
 
           <div className="space-y-3">
@@ -302,16 +333,32 @@ export default function HoursTab({ driverId }: { driverId: string }) {
                 </div>
               )}
             </div>
-            <TimeWheel value={endTime} onChange={setEndTime} />
-            <Button
-              onClick={saveEnd}
-              disabled={savingEnd || !startSaved}
-              className="w-full"
-              variant={startSaved ? "default" : "secondary"}
-            >
-              {savingEnd ? "Saving..." : "Save End"}
-            </Button>
-            {!startSaved && <p className="text-xs text-muted-foreground">Save Start first.</p>}
+
+            {endSaved && !showEndWheel ? (
+              <div className="flex items-center justify-between rounded-lg border border-border/60 bg-background/40 px-4 py-3">
+                <div>
+                  <div className="text-sm text-muted-foreground">End time</div>
+                  <div className="text-2xl font-bold text-foreground">{activeRow ? displayEndTime(activeRow) : "—"}</div>
+
+                </div>
+                <Button variant="outline" size="sm" onClick={() => setShowEndWheel(true)}>
+                  Edit
+                </Button>
+              </div>
+            ) : (
+              <>
+                <TimeWheel value={endTime} onChange={setEndTime} />
+                <Button
+                  onClick={saveEnd}
+                  disabled={savingEnd || !startSaved}
+                  className="w-full"
+                  variant={startSaved ? "default" : "secondary"}
+                >
+                  {savingEnd ? "Saving..." : "Save End"}
+                </Button>
+                {!startSaved && <p className="text-xs text-muted-foreground">Save Start first.</p>}
+              </>
+            )}
 
             {activeRow && (activeRow.start_time || activeRow.end_time) && (
               <Button
@@ -361,7 +408,15 @@ export default function HoursTab({ driverId }: { driverId: string }) {
                           </div>
 
                           <div className="flex shrink-0 flex-col gap-2">
-                            <Button variant="outline" size="sm" onClick={() => setActiveDate(r.work_date)}>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => {
+                                setActiveDate(r.work_date);
+                                setShowStartWheel(false);
+                                setShowEndWheel(false);
+                              }}
+                            >
                               Edit
                             </Button>
                             <Button
