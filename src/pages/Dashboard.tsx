@@ -21,6 +21,12 @@ import backgroundImage from "@/assets/app-background.png";
 import { Input } from "@/components/ui/input";
 import { openGoogleMapsApp } from "@/utils/maps";
 
+function getLocalNowTime(date = new Date()) {
+  const hh = String(date.getHours()).padStart(2, "0");
+  const mm = String(date.getMinutes()).padStart(2, "0");
+  return `${hh}:${mm}`;
+}
+
 export default function Dashboard() {
   const navigate = useNavigate();
   const { currentDriver, logout } = useDriver();
@@ -28,7 +34,7 @@ export default function Dashboard() {
   const [currentTask, setCurrentTask] = useState<any>(null);
   const [passengers, setPassengers] = useState<any[]>([]);
   const [selectedPassengers, setSelectedPassengers] = useState<string[]>([]);
-  const [eta, setEta] = useState<string>("12:00");
+  const [eta, setEta] = useState<string>(() => getLocalNowTime());
   const [delayPassenger, setDelayPassenger] = useState<string>("");
   const [showDelaySelection, setShowDelaySelection] = useState(false);
   const [showEtaDialog, setShowEtaDialog] = useState(false);
@@ -235,7 +241,7 @@ export default function Dashboard() {
       setCurrentTask(null);
       setTripMode("pickup");
       setSelectedPassengers([]);
-      setEta("12:00");
+      setEta(getLocalNowTime());
       setDelayPassenger("");
       setShowDelaySelection(false);
       setShowEtaDialog(false);

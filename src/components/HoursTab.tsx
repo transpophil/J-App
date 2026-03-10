@@ -23,6 +23,12 @@ function getLocalIsoDate(date = new Date()) {
   return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;
 }
 
+function getLocalNowTime(date = new Date()) {
+  const hh = String(date.getHours()).padStart(2, "0");
+  const mm = String(date.getMinutes()).padStart(2, "0");
+  return `${hh}:${mm}`;
+}
+
 function formatDayDate(isoDate: string) {
   const d = new Date(`${isoDate}T00:00:00`);
   const day = d.toLocaleDateString(undefined, { weekday: "short" });
@@ -81,14 +87,15 @@ function displayEndTime(row: DriverHourRow) {
 export default function HoursTab({ driverId }: { driverId: string }) {
   const { toast } = useToast();
   const today = useMemo(() => getLocalIsoDate(), []);
+  const defaultNowTime = useMemo(() => getLocalNowTime(), []);
 
   const [rows, setRows] = useState<DriverHourRow[]>([]);
 
   // Editing date (defaults to today, but can be any day from the list)
   const [activeDate, setActiveDate] = useState<string>(today);
 
-  const [startTime, setStartTime] = useState("12:00");
-  const [endTime, setEndTime] = useState("12:00");
+  const [startTime, setStartTime] = useState(defaultNowTime);
+  const [endTime, setEndTime] = useState(defaultNowTime);
 
   const [savingStart, setSavingStart] = useState(false);
   const [savingEnd, setSavingEnd] = useState(false);
@@ -131,8 +138,9 @@ export default function HoursTab({ driverId }: { driverId: string }) {
   // When switching days, load that day's values into the wheels
   useEffect(() => {
     if (!activeRow) {
-      setStartTime("12:00");
-      setEndTime("12:00");
+      const now = getLocalNowTime();
+      setStartTime(now);
+      setEndTime(now);
       return;
     }
     if (activeRow.start_time) setStartTime(activeRow.start_time);
@@ -206,8 +214,9 @@ export default function HoursTab({ driverId }: { driverId: string }) {
 
     toast({ title: "Day cleared" });
     if (activeDate === row.work_date) {
-      setStartTime("12:00");
-      setEndTime("12:00");
+      const now = getLocalNowTime();
+      setStartTime(now);
+      setEndTime(now);
     }
     await loadHours();
   }
