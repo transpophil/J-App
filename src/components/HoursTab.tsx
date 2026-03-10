@@ -15,6 +15,8 @@ type DriverHourRow = {
   end_time: string | null;
 };
 
+const REQUIRED_SHIFT_MINUTES = 10 * 60 + 45; // 10h work + 45m break = 10:45 total
+
 function getLocalIsoDate(date = new Date()) {
   // YYYY-MM-DD in the driver's local time (avoids UTC day shifting)
   const pad = (n: number) => String(n).padStart(2, "0");
@@ -26,6 +28,54 @@ function formatDayDate(isoDate: string) {
   const day = d.toLocaleDateString(undefined, { weekday: "short" });
   const date = d.toLocaleDateString(undefined, { day: "2-digit", month: "2-digit", year: "numeric" });
   return `${day} ${date}`;
+}
+
+function parseTimeToMinutes(time: string) {
+  const [h, m] = time.split(":").map((v) => Number(v));
+  if (Number.isNaN(h) || Number.isNaN(m)) return 0;
+  return h * 60 + m;
+}
+
+function minutesToTime(minutes: number) {
+  const m = ((minutes % (24 * 60)) + 24 * 60) % (24 * 60);
+  const hh = Math.floor(m / 60);
+  const mm = m % 60;
+  return `${String(hh).padStart(2, "0")}:${String(mm).padStart(2, "0")}`;
+}
+
+function addMinutes(time: string, minutesToAdd: number) {
+  return minutesToTime(parseTimeToMinutes(time) + minutesToAdd);
+}
+
+function getWeekStartIso(isoDate: string) {
+  // Monday-based week (local)
+  const d = new Date(`${isoDate}T00:00:00`);
+  const day = d.getDay(); // 0=Sun,1=Mon...
+  const diff = (day + 6) % 7; // days since Monday
+  d.setDate(d.getDate() - diff);
+  return getLocalIsoDate(d);
+}
+
+function formatWeekRange(weekStartIso: string) {
+  const start = new Date(`${weekStartIso}T00:00:00`);
+  const end = new Date(start);
+  end.setDate(end.getDate() + 6);
+
+  const startStr = start.toLocaleDateString(undefined, { day: "2-digit", month: "2-digit", year: "numeric" });
+  const endStr = end.toLocaleDateString(undefined, { day: "2-digit", month: "2-digit", year: "numeric" });
+  return `${startStr} – ${endStr}`;
+}
+
+function displayEndTime(row: DriverHourRow) {
+  if (!row.start_time) return row.end_time ?? "—";
+  if (!row.end_time) return "—";
+
+  const requiredEnd = addMinutes(row.start_time, REQUIRED_SHIFT_MINUTES);
+  const actualMin = parseTimeToMinutes(row.end_time);
+  const requiredMin = parseTimeToMinutes(requiredEnd);
+
+  // If driver worked less than 10:45, show the required end time.
+  return actualMin < requiredMin ? requiredEnd : row.end_time;
 }
 
 export default function HoursTab({ driverId }: { driverId: string }) {
@@ -137,6 +187,28 @@ export default function HoursTab({ driverId }: { driverId: string }) {
   const startSaved = Boolean(todayRow?.start_time);
   const endSaved = Boolean(todayRow?.end_time);
 
+  const plannedEndTime = useMemo(() => {
+    const base = startSaved && todayRow?.start_time ? todayRow.start_time : startTime;
+    return addMinutes(base, REQUIRED_SHIFT_MINUTES);
+  }, [startSaved, startTime, todayRow?.start_time]);
+
+  const rowsByWeek = useMemo(() => {
+    const map = new Map<string, DriverHourRow[]>();
+    for (const r of rows) {
+      const weekStart = getWeekStartIso(r.work_date);
+      const list = map.get(weekStart) ?? [];
+      list.push(r);
+      map.set(weekStart, list);
+    }
+
+    const weekStarts = Array.from(map.keys()).sort((a, b) => (a < b ? 1 : -1));
+    return weekStarts.map((weekStart) => ({
+      weekStart,
+      rangeLabel: formatWeekRange(weekStart),
+      rows: (map.get(weekStart) ?? []).sort((a, b) => (a.work_date < b.work_date ? 1 : -1)),
+    }));
+  }, [rows]);
+
   return (
     <div className="space-y-6">
       <Card className="p-6 shadow-elevated bg-card/80 backdrop-blur-md border-border/50">
@@ -147,8 +219,13 @@ export default function HoursTab({ driverId }: { driverId: string }) {
           </div>
           <div className="flex items-center gap-2 text-muted-foreground">
             <Clock className="h-4 w-4" />
-            <span className="text-sm">24h</span>
+            <span className="text-sm">10:45 required</span>
           </div>
+        </div>
+
+        <div className="mt-4 rounded-lg border border-border/60 bg-background/40 px-4 py-3">
+          <div className="text-sm text-muted-foreground">Potential end time (start + 10:45)</div>
+          <div className="text-lg font-bold text-foreground">{plannedEndTime}</div>
         </div>
 
         <div className="mt-6 grid gap-8">
@@ -198,22 +275,31 @@ export default function HoursTab({ driverId }: { driverId: string }) {
         {rows.length === 0 ? (
           <p className="text-sm text-muted-foreground">No hours saved yet.</p>
         ) : (
-          <div className="space-y-3">
-            {rows.map((r) => (
-              <div
-                key={r.id}
-                className="flex items-center justify-between gap-3 rounded-lg border border-border/60 bg-background/40 px-4 py-3"
-              >
-                <div className="min-w-0">
-                  <div className="font-semibold text-foreground">{formatDayDate(r.work_date)}</div>
+          <div className="space-y-6">
+            {rowsByWeek.map((week) => (
+              <div key={week.weekStart} className="space-y-3">
+                <div className="text-sm font-semibold text-muted-foreground">
+                  Week: {week.rangeLabel}
                 </div>
-                <div className="flex shrink-0 items-center gap-4 text-sm">
-                  <div className="text-muted-foreground">
-                    <span className="font-medium text-foreground">Start:</span> {r.start_time ?? "—"}
-                  </div>
-                  <div className="text-muted-foreground">
-                    <span className="font-medium text-foreground">End:</span> {r.end_time ?? "—"}
-                  </div>
+                <div className="space-y-3">
+                  {week.rows.map((r) => (
+                    <div
+                      key={r.id}
+                      className="flex items-center justify-between gap-3 rounded-lg border border-border/60 bg-background/40 px-4 py-3"
+                    >
+                      <div className="min-w-0">
+                        <div className="font-semibold text-foreground">{formatDayDate(r.work_date)}</div>
+                      </div>
+                      <div className="flex shrink-0 flex-col sm:flex-row sm:items-center gap-1 sm:gap-4 text-sm">
+                        <div className="text-muted-foreground">
+                          <span className="font-medium text-foreground">Start:</span> {r.start_time ?? "—"}
+                        </div>
+                        <div className="text-muted-foreground">
+                          <span className="font-medium text-foreground">End:</span> {displayEndTime(r)}
+                        </div>
+                      </div>
+                    </div>
+                  ))}
                 </div>
               </div>
             ))}
