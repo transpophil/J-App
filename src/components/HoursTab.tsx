@@ -4,7 +4,7 @@ import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { TimeWheel } from "@/components/TimeWheel";
-import { CheckCircle2, Clock } from "lucide-react";
+import { CheckCircle2, Clock, RotateCcw } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
 type DriverHourRow = {
@@ -83,13 +83,17 @@ export default function HoursTab({ driverId }: { driverId: string }) {
   const today = useMemo(() => getLocalIsoDate(), []);
 
   const [rows, setRows] = useState<DriverHourRow[]>([]);
-  const [todayRow, setTodayRow] = useState<DriverHourRow | null>(null);
+
+  // Editing date (defaults to today, but can be any day from the list)
+  const [activeDate, setActiveDate] = useState<string>(today);
 
   const [startTime, setStartTime] = useState("12:00");
   const [endTime, setEndTime] = useState("12:00");
 
   const [savingStart, setSavingStart] = useState(false);
   const [savingEnd, setSavingEnd] = useState(false);
+
+  const activeRow = useMemo(() => rows.find((r) => r.work_date === activeDate) ?? null, [rows, activeDate]);
 
   async function loadHours() {
     const { data, error } = await supabase
@@ -103,13 +107,7 @@ export default function HoursTab({ driverId }: { driverId: string }) {
       return;
     }
 
-    const list = (data ?? []) as DriverHourRow[];
-    setRows(list);
-
-    const t = list.find((r) => r.work_date === today) ?? null;
-    setTodayRow(t);
-    if (t?.start_time) setStartTime(t.start_time);
-    if (t?.end_time) setEndTime(t.end_time);
+    setRows((data ?? []) as DriverHourRow[]);
   }
 
   useEffect(() => {
@@ -130,6 +128,17 @@ export default function HoursTab({ driverId }: { driverId: string }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [driverId]);
 
+  // When switching days, load that day's values into the wheels
+  useEffect(() => {
+    if (!activeRow) {
+      setStartTime("12:00");
+      setEndTime("12:00");
+      return;
+    }
+    if (activeRow.start_time) setStartTime(activeRow.start_time);
+    if (activeRow.end_time) setEndTime(activeRow.end_time);
+  }, [activeRow, activeDate]);
+
   async function saveStart() {
     setSavingStart(true);
     try {
@@ -138,7 +147,7 @@ export default function HoursTab({ driverId }: { driverId: string }) {
         .upsert(
           {
             driver_id: driverId,
-            work_date: today,
+            work_date: activeDate,
             start_time: startTime,
           },
           { onConflict: "driver_id,work_date" }
@@ -165,7 +174,7 @@ export default function HoursTab({ driverId }: { driverId: string }) {
         .upsert(
           {
             driver_id: driverId,
-            work_date: today,
+            work_date: activeDate,
             end_time: endTime,
           },
           { onConflict: "driver_id,work_date" }
@@ -184,13 +193,32 @@ export default function HoursTab({ driverId }: { driverId: string }) {
     }
   }
 
-  const startSaved = Boolean(todayRow?.start_time);
-  const endSaved = Boolean(todayRow?.end_time);
+  async function startOverForDate(row: DriverHourRow) {
+    const ok = window.confirm(`Start over for ${formatDayDate(row.work_date)}? This will delete the saved times for that day.`);
+    if (!ok) return;
+
+    const { error } = await supabase.from("driver_hours").delete().eq("id", row.id);
+    if (error) {
+      console.error("Failed to start over", error);
+      toast({ title: "Could not start over", variant: "destructive" });
+      return;
+    }
+
+    toast({ title: "Day cleared" });
+    if (activeDate === row.work_date) {
+      setStartTime("12:00");
+      setEndTime("12:00");
+    }
+    await loadHours();
+  }
+
+  const startSaved = Boolean(activeRow?.start_time);
+  const endSaved = Boolean(activeRow?.end_time);
 
   const plannedEndTime = useMemo(() => {
-    const base = startSaved && todayRow?.start_time ? todayRow.start_time : startTime;
+    const base = startSaved && activeRow?.start_time ? activeRow.start_time : startTime;
     return addMinutes(base, REQUIRED_SHIFT_MINUTES);
-  }, [startSaved, startTime, todayRow?.start_time]);
+  }, [startSaved, startTime, activeRow?.start_time]);
 
   const rowsByWeek = useMemo(() => {
     const map = new Map<string, DriverHourRow[]>();
@@ -215,7 +243,17 @@ export default function HoursTab({ driverId }: { driverId: string }) {
         <div className="flex items-start justify-between gap-4">
           <div>
             <h2 className="text-xl font-bold text-foreground">Hours</h2>
-            <p className="text-sm text-muted-foreground">{formatDayDate(today)}</p>
+            <p className="text-sm text-muted-foreground">{formatDayDate(activeDate)}</p>
+            {activeDate !== today && (
+              <Button
+                variant="outline"
+                size="sm"
+                className="mt-2"
+                onClick={() => setActiveDate(today)}
+              >
+                Back to Today
+              </Button>
+            )}
           </div>
           <div className="flex items-center gap-2 text-muted-foreground">
             <Clock className="h-4 w-4" />
@@ -265,6 +303,17 @@ export default function HoursTab({ driverId }: { driverId: string }) {
               {savingEnd ? "Saving..." : "Save End"}
             </Button>
             {!startSaved && <p className="text-xs text-muted-foreground">Save Start first.</p>}
+
+            {activeRow && (activeRow.start_time || activeRow.end_time) && (
+              <Button
+                variant="outline"
+                className="w-full border-destructive/40 text-destructive hover:bg-destructive/10"
+                onClick={() => startOverForDate(activeRow)}
+              >
+                <RotateCcw className="mr-2 h-4 w-4" />
+                Start Over (Clear Day)
+              </Button>
+            )}
           </div>
         </div>
       </Card>
@@ -278,28 +327,47 @@ export default function HoursTab({ driverId }: { driverId: string }) {
           <div className="space-y-6">
             {rowsByWeek.map((week) => (
               <div key={week.weekStart} className="space-y-3">
-                <div className="text-sm font-semibold text-muted-foreground">
-                  Week: {week.rangeLabel}
-                </div>
+                <div className="text-sm font-semibold text-muted-foreground">Week: {week.rangeLabel}</div>
                 <div className="space-y-3">
-                  {week.rows.map((r) => (
-                    <div
-                      key={r.id}
-                      className="flex items-center justify-between gap-3 rounded-lg border border-border/60 bg-background/40 px-4 py-3"
-                    >
-                      <div className="min-w-0">
-                        <div className="font-semibold text-foreground">{formatDayDate(r.work_date)}</div>
-                      </div>
-                      <div className="flex shrink-0 flex-col sm:flex-row sm:items-center gap-1 sm:gap-4 text-sm">
-                        <div className="text-muted-foreground">
-                          <span className="font-medium text-foreground">Start:</span> {r.start_time ?? "—"}
+                  {week.rows.map((r) => {
+                    const isActive = r.work_date === activeDate;
+                    return (
+                      <div
+                        key={r.id}
+                        className={`rounded-lg border border-border/60 bg-background/40 px-4 py-3 ${
+                          isActive ? "ring-2 ring-primary/40" : ""
+                        }`}
+                      >
+                        <div className="flex items-start justify-between gap-3">
+                          <div className="min-w-0">
+                            <div className="font-semibold text-foreground">{formatDayDate(r.work_date)}</div>
+                            <div className="mt-1 flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-4 text-sm">
+                              <div className="text-muted-foreground">
+                                <span className="font-medium text-foreground">Start:</span> {r.start_time ?? "—"}
+                              </div>
+                              <div className="text-muted-foreground">
+                                <span className="font-medium text-foreground">End:</span> {displayEndTime(r)}
+                              </div>
+                            </div>
+                          </div>
+
+                          <div className="flex shrink-0 flex-col gap-2">
+                            <Button variant="outline" size="sm" onClick={() => setActiveDate(r.work_date)}>
+                              Edit
+                            </Button>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              className="border-destructive/40 text-destructive hover:bg-destructive/10"
+                              onClick={() => startOverForDate(r)}
+                            >
+                              Start Over
+                            </Button>
+                          </div>
                         </div>
-                        <div className="text-muted-foreground">
-                          <span className="font-medium text-foreground">End:</span> {displayEndTime(r)}
-                        </div>
                       </div>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               </div>
             ))}
