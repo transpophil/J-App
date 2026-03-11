@@ -6,8 +6,17 @@ import { Label } from "@/components/ui/label";
 import { TimeWheel } from "@/components/TimeWheel";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { CheckCircle2, Clock, RotateCcw, Calendar as CalendarIcon } from "lucide-react";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import { CheckCircle2, Clock, RotateCcw, Calendar as CalendarIcon, Download } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { jsPDF } from "jspdf";
 
 type DriverHourRow = {
   id: string;
@@ -40,6 +49,11 @@ function formatDayDate(isoDate: string) {
   const day = d.toLocaleDateString(undefined, { weekday: "short" });
   const date = d.toLocaleDateString(undefined, { day: "2-digit", month: "2-digit", year: "numeric" });
   return `${day} ${date}`;
+}
+
+function formatShortDate(isoDate: string) {
+  const d = isoToLocalDate(isoDate);
+  return d.toLocaleDateString(undefined, { day: "2-digit", month: "2-digit", year: "numeric" });
 }
 
 function parseTimeToMinutes(time: string) {
@@ -249,6 +263,58 @@ export default function HoursTab({ driverId }: { driverId: string }) {
     await loadHours();
   }
 
+  function downloadWeekPdf(week: { weekStart: string; rangeLabel: string; rows: DriverHourRow[] }) {
+    const doc = new jsPDF({ unit: "pt", format: "a4" });
+
+    const marginX = 40;
+    let y = 50;
+
+    doc.setFontSize(16);
+    doc.text("Driver Hours", marginX, y);
+
+    y += 18;
+    doc.setFontSize(11);
+    doc.text(`Week: ${week.rangeLabel}`, marginX, y);
+
+    y += 10;
+    doc.setDrawColor(200);
+    doc.line(marginX, y, 555, y);
+
+    y += 22;
+
+    // Column positions
+    const xDate = marginX;
+    const xStart = 220;
+    const xEnd = 340;
+
+    doc.setFontSize(11);
+    doc.setFont("helvetica", "bold");
+    doc.text("Date", xDate, y);
+    doc.text("Start", xStart, y);
+    doc.text("End", xEnd, y);
+    doc.setFont("helvetica", "normal");
+
+    y += 12;
+    doc.line(marginX, y, 555, y);
+    y += 18;
+
+    const lineHeight = 18;
+    for (const r of week.rows.slice().sort((a, b) => (a.work_date < b.work_date ? 1 : -1))) {
+      if (y > 780) {
+        doc.addPage();
+        y = 60;
+      }
+
+      doc.text(formatShortDate(r.work_date), xDate, y);
+      doc.text(r.start_time ?? "—", xStart, y);
+      doc.text(displayEndTime(r), xEnd, y);
+      y += lineHeight;
+    }
+
+    const fileName = `hours_${week.weekStart}.pdf`;
+    doc.save(fileName);
+  }
+
   const startSaved = Boolean(activeRow?.start_time);
   const endSaved = Boolean(activeRow?.end_time);
 
@@ -422,58 +488,54 @@ export default function HoursTab({ driverId }: { driverId: string }) {
         {rows.length === 0 ? (
           <p className="text-sm text-muted-foreground">No hours saved yet.</p>
         ) : (
-          <div className="space-y-6">
+          <div className="space-y-8">
             {rowsByWeek.map((week) => (
               <div key={week.weekStart} className="space-y-3">
                 <div className="text-sm font-semibold text-muted-foreground">Week: {week.rangeLabel}</div>
-                <div className="space-y-3">
-                  {week.rows.map((r) => {
-                    const isActive = r.work_date === activeDate;
-                    return (
-                      <div
-                        key={r.id}
-                        className={`rounded-lg border border-border/60 bg-background/40 px-4 py-3 ${
-                          isActive ? "ring-2 ring-primary/40" : ""
-                        }`}
-                      >
-                        <div className="flex items-start justify-between gap-3">
-                          <div className="min-w-0">
-                            <div className="font-semibold text-foreground">{formatDayDate(r.work_date)}</div>
-                            <div className="mt-1 flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-4 text-sm">
-                              <div className="text-muted-foreground">
-                                <span className="font-medium text-foreground">Start:</span> {r.start_time ?? "—"}
-                              </div>
-                              <div className="text-muted-foreground">
-                                <span className="font-medium text-foreground">End:</span> {displayEndTime(r)}
-                              </div>
-                            </div>
-                          </div>
 
-                          <div className="flex shrink-0 flex-col gap-2">
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              onClick={() => {
-                                setActiveDate(r.work_date);
-                                setShowStartWheel(false);
-                                setShowEndWheel(false);
-                              }}
-                            >
-                              Edit
-                            </Button>
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              className="border-destructive/40 text-destructive hover:bg-destructive/10"
-                              onClick={() => startOverForDate(r)}
-                            >
-                              Start Over
-                            </Button>
-                          </div>
-                        </div>
-                      </div>
-                    );
-                  })}
+                <div className="rounded-lg border border-border/60 overflow-hidden">
+                  <Table>
+                    <TableHeader>
+                      <TableRow className="bg-muted/40">
+                        <TableHead className="w-[45%]">Date</TableHead>
+                        <TableHead className="w-[20%]">Start time</TableHead>
+                        <TableHead className="w-[20%]">End time</TableHead>
+                        <TableHead className="w-[15%] text-right">Edit</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {week.rows.map((r) => {
+                        const isActive = r.work_date === activeDate;
+                        return (
+                          <TableRow key={r.id} className={isActive ? "bg-primary/5" : undefined}>
+                            <TableCell className="font-medium">{formatDayDate(r.work_date)}</TableCell>
+                            <TableCell>{r.start_time ?? "—"}</TableCell>
+                            <TableCell>{displayEndTime(r)}</TableCell>
+                            <TableCell className="text-right">
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => {
+                                  setActiveDate(r.work_date);
+                                  setShowStartWheel(false);
+                                  setShowEndWheel(false);
+                                }}
+                              >
+                                Edit
+                              </Button>
+                            </TableCell>
+                          </TableRow>
+                        );
+                      })}
+                    </TableBody>
+                  </Table>
+                </div>
+
+                <div className="flex justify-end">
+                  <Button variant="outline" size="sm" className="gap-2" onClick={() => downloadWeekPdf(week)}>
+                    <Download className="h-4 w-4" />
+                    Download week as PDF
+                  </Button>
                 </div>
               </div>
             ))}
