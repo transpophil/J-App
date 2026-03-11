@@ -688,16 +688,22 @@ export default function Dashboard() {
 
         {/* Tabs for Tasks and Pick Ups */}
         <Tabs defaultValue="pickups" className="w-full">
-          <TabsList className="w-full justify-center gap-4 p-2">
-            <TabsTrigger value="pickups" className="px-6 py-3 text-lg font-bold">Pick Ups</TabsTrigger>
-            <TabsTrigger value="tasks" className="px-6 py-3 text-lg font-bold relative">
+          <TabsList className="w-full h-auto grid grid-cols-4 gap-1 sm:gap-4 p-1 sm:p-2">
+            <TabsTrigger value="pickups" className="w-full px-2 py-2 text-xs font-bold sm:px-6 sm:py-3 sm:text-lg">
+              Pick Ups
+            </TabsTrigger>
+            <TabsTrigger value="tasks" className="w-full px-2 py-2 text-xs font-bold relative sm:px-6 sm:py-3 sm:text-lg">
               Tasks
               {hasNewTasks && (
                 <span className="absolute -top-1 -right-1 h-2 w-2 rounded-full bg-destructive ring-2 ring-background" />
               )}
             </TabsTrigger>
-            <TabsTrigger value="hours" className="px-6 py-3 text-lg font-bold">Hours</TabsTrigger>
-            <TabsTrigger value="docs" className="px-6 py-3 text-lg font-bold">Docs</TabsTrigger>
+            <TabsTrigger value="hours" className="w-full px-2 py-2 text-xs font-bold sm:px-6 sm:py-3 sm:text-lg">
+              Hours
+            </TabsTrigger>
+            <TabsTrigger value="docs" className="w-full px-2 py-2 text-xs font-bold sm:px-6 sm:py-3 sm:text-lg">
+              Docs
+            </TabsTrigger>
           </TabsList>
 
           <TabsContent value="tasks" className="mt-6">
