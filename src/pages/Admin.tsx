@@ -10,7 +10,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
-import { ArrowLeft, Plus, Trash2, Edit } from "lucide-react";
+import { ArrowLeft, Plus, Trash2, Edit, FileText } from "lucide-react";
 import logo from "@/assets/j-app-logo.jpg";
 import PassengerSortable from "@/components/PassengerSortable";
 import DriverSortable from "@/components/DriverSortable";
@@ -26,6 +26,12 @@ export default function Admin() {
   const [tasks, setTasks] = useState<any[]>([]);
   const [templates, setTemplates] = useState<any[]>([]);
   const [settings, setSettings] = useState<any>({});
+
+  // ADDED: documents for driver Docs tab
+  const [documents, setDocuments] = useState<any[]>([]);
+  const [docName, setDocName] = useState("");
+  const [docFile, setDocFile] = useState<File | null>(null);
+
   const [showTaskDialog, setShowTaskDialog] = useState(false);
   const [showDriverDialog, setShowDriverDialog] = useState(false);
   const [showPassengerDialog, setShowPassengerDialog] = useState(false);
@@ -96,12 +102,13 @@ export default function Admin() {
 
   async function loadData() {
     const [
-      driversRes, 
-      passengersRes, 
-      tasksRes, 
-      templatesRes, 
+      driversRes,
+      passengersRes,
+      tasksRes,
+      templatesRes,
       settingsRes,
-      destinationsRes
+      destinationsRes,
+      documentsRes,
     ] = await Promise.all([
       supabase.from("drivers").select("*").order("name"),
       supabase.from("passengers").select("*").order("name"),
@@ -109,6 +116,7 @@ export default function Admin() {
       supabase.from("message_templates").select("*").order("template_key"),
       supabase.from("app_settings").select("*"),
       supabase.from("destinations").select("*").order("name"),
+      supabase.from("documents").select("*").order("created_at", { ascending: false }),
     ]);
 
     if (driversRes.error) console.error("Drivers load error:", driversRes.error);
@@ -117,6 +125,7 @@ export default function Admin() {
     if (templatesRes.error) console.error("Templates load error:", templatesRes.error);
     if (settingsRes.error) console.error("Settings load error:", settingsRes.error);
     if (destinationsRes.error) console.error("Destinations load error:", destinationsRes.error);
+    if (documentsRes.error) console.error("Documents load error:", documentsRes.error);
 
     // FIX: update tasks state so Active Tasks reflects current data
     setTasks(tasksRes.data || []);
@@ -189,11 +198,13 @@ export default function Admin() {
     if (!hasEtaUpdate) {
       const { data: inserted, error: insertError } = await supabase
         .from("message_templates")
-        .insert([{
-          template_key: "eta_update",
-          template_text: "Due to delay [driver] has a new ETA [eta]. please be aware",
-          description: "Message when driver updates ETA due to delay"
-        }])
+        .insert([
+          {
+            template_key: "eta_update",
+            template_text: "Due to delay [driver] has a new ETA [eta]. please be aware",
+            description: "Message when driver updates ETA due to delay",
+          },
+        ])
         .select()
         .single();
       if (!insertError && inserted) {
@@ -205,6 +216,76 @@ export default function Admin() {
 
     setTemplates(templatesData);
     setDestinations(orderedDestinations);
+    setDocuments(documentsRes.data || []);
+  }
+
+  function safeFileName(name: string) {
+    return name.replace(/[^a-zA-Z0-9._-]+/g, "_");
+  }
+
+  async function uploadDocument() {
+    const cleanName = docName.trim();
+    if (!cleanName) {
+      toast({ title: "Please enter a document name", variant: "destructive" });
+      return;
+    }
+    if (!docFile) {
+      toast({ title: "Please choose a file", variant: "destructive" });
+      return;
+    }
+
+    const path = `docs/${Date.now()}_${safeFileName(docFile.name)}`;
+
+    const { error: uploadError } = await supabase.storage.from("driver-docs").upload(path, docFile, {
+      upsert: false,
+      contentType: docFile.type || undefined,
+    });
+
+    if (uploadError) {
+      console.error("Document upload error:", uploadError);
+      toast({ title: "Upload failed", variant: "destructive" });
+      return;
+    }
+
+    const { data: urlData } = supabase.storage.from("driver-docs").getPublicUrl(path);
+    const fileUrl = urlData.publicUrl;
+
+    const { error: insertError } = await supabase
+      .from("documents")
+      .insert([{ name: cleanName, file_path: path, file_url: fileUrl }]);
+
+    if (insertError) {
+      console.error("Document insert error:", insertError);
+      toast({ title: "Failed to save document record", variant: "destructive" });
+      return;
+    }
+
+    toast({ title: "Document uploaded" });
+    setDocName("");
+    setDocFile(null);
+    await loadData();
+  }
+
+  async function deleteDocument(doc: any) {
+    const ok = window.confirm(`Delete document "${doc.name}"?`);
+    if (!ok) return;
+
+    if (doc.file_path) {
+      const { error: removeError } = await supabase.storage.from("driver-docs").remove([doc.file_path]);
+      if (removeError) {
+        console.error("Storage remove error:", removeError);
+      }
+    }
+
+    const { error } = await supabase.from("documents").delete().eq("id", doc.id);
+    if (error) {
+      console.error("Document delete error:", error);
+      toast({ title: "Failed to delete document", variant: "destructive" });
+      return;
+    }
+
+    toast({ title: "Document deleted" });
+    await loadData();
   }
 
   async function createOrUpdateTask() {
@@ -1048,7 +1129,7 @@ export default function Admin() {
             </div>
           </TabsContent>
 
-          <TabsContent value="templates" className="space-y-4">
+          <TabsContent value="templates" className="space-y-6">
             <h2 className="text-2xl font-bold">Message Templates</h2>
             <p className="text-sm text-muted-foreground">
               Use variables: [driver], [passenger], [eta], [delay], [location]
@@ -1075,15 +1156,71 @@ export default function Admin() {
                       }}
                       rows={2}
                     />
-                    <Button
-                      size="sm"
-                      onClick={() => updateTemplate(template.id, template.template_text)}
-                    >
+                    <Button size="sm" onClick={() => updateTemplate(template.id, template.template_text)}>
                       Save Template
                     </Button>
                   </div>
                 </Card>
               ))}
+            </div>
+
+            {/* Docs section */}
+            <div className="pt-2">
+              <div className="flex items-center gap-2 mb-2">
+                <FileText className="h-5 w-5 text-muted-foreground" />
+                <h3 className="text-xl font-bold">Docs</h3>
+              </div>
+              <Card className="p-6 space-y-4">
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <div className="space-y-2">
+                    <Label>Document name</Label>
+                    <Input value={docName} onChange={(e) => setDocName(e.target.value)} placeholder="e.g. Safety rules" />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>File</Label>
+                    <Input
+                      type="file"
+                      onChange={(e) => setDocFile(e.target.files?.[0] || null)}
+                    />
+                  </div>
+                </div>
+                <div className="flex justify-end">
+                  <Button onClick={uploadDocument} disabled={!docName.trim() || !docFile}>
+                    Upload document
+                  </Button>
+                </div>
+
+                <div className="space-y-2">
+                  <Label className="text-base">Uploaded documents</Label>
+                  {documents.length === 0 ? (
+                    <div className="text-sm text-muted-foreground">No documents uploaded yet.</div>
+                  ) : (
+                    <div className="space-y-2">
+                      {documents.map((doc) => (
+                        <div
+                          key={doc.id}
+                          className="flex items-center justify-between gap-3 rounded-lg border border-border/60 bg-background/40 px-4 py-3"
+                        >
+                          <div className="min-w-0">
+                            <div className="font-medium text-foreground truncate">{doc.name}</div>
+                            <a
+                              href={doc.file_url}
+                              target="_blank"
+                              rel="noreferrer"
+                              className="text-xs text-muted-foreground underline underline-offset-2"
+                            >
+                              Open
+                            </a>
+                          </div>
+                          <Button size="icon" variant="destructive" onClick={() => deleteDocument(doc)}>
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </Card>
             </div>
           </TabsContent>
 

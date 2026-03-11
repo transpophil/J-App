@@ -16,6 +16,7 @@ import { TaskSection } from "@/components/TaskSection";
 import TasksBoard from "@/components/TasksBoard";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import HoursTab from "@/components/HoursTab";
+import DocsTab from "@/components/DocsTab";
 import logo from "@/assets/j-app-logo.jpg";
 import backgroundImage from "@/assets/app-background.png";
 import { Input } from "@/components/ui/input";
@@ -267,6 +268,16 @@ export default function Dashboard() {
     return names.join(" & ");
   }
 
+  function togglePassenger(passengerId: string) {
+    setSelectedPassengers(prev => {
+      if (prev.includes(passengerId)) {
+        return prev.filter(id => id !== passengerId);
+      } else {
+        return [...prev, passengerId];
+      }
+    });
+  }
+
   function handleLetsGoClick() {
     if (selectedPassengers.length === 0 || !currentDriver) {
       toast({ title: "Please select at least one passenger", variant: "destructive" });
@@ -466,16 +477,6 @@ export default function Dashboard() {
     } finally {
       setSendingDelay(false);
     }
-  }
-
-  function togglePassengerSelection(passengerId: string) {
-    setSelectedPassengers(prev => {
-      if (prev.includes(passengerId)) {
-        return prev.filter(id => id !== passengerId);
-      } else {
-        return [...prev, passengerId];
-      }
-    });
   }
 
   async function handleFiveMinWarning() {
@@ -696,6 +697,7 @@ export default function Dashboard() {
               )}
             </TabsTrigger>
             <TabsTrigger value="hours" className="px-6 py-3 text-lg font-bold">Hours</TabsTrigger>
+            <TabsTrigger value="docs" className="px-6 py-3 text-lg font-bold">Docs</TabsTrigger>
           </TabsList>
 
           <TabsContent value="tasks" className="mt-6">
@@ -730,27 +732,21 @@ export default function Dashboard() {
                         {passengers.map((passenger) => (
                           <div
                             key={passenger.id}
-                            onClick={() => togglePassengerSelection(passenger.id)}
-                            className={`p-4 border rounded-lg cursor-pointer transition-all ${
+                            className={`p-4 rounded-xl border-2 cursor-pointer transition-all duration-200 ${
                               selectedPassengers.includes(passenger.id)
-                                ? "border-primary bg-primary/10"
-                                : "border-border hover:border-primary/50"
+                                ? "bg-primary/10 border-primary shadow-md"
+                                : "bg-card border-border hover:border-primary/50 hover:shadow-sm"
                             }`}
+                            onClick={() => togglePassenger(passenger.id)}
                           >
-                            <div className="flex items-start gap-3">
-                              <div className={`mt-1 w-5 h-5 rounded border-2 flex items-center justify-center ${
-                                selectedPassengers.includes(passenger.id)
-                                  ? "border-primary bg-primary"
-                                  : "border-border"
-                              }`}>
-                                {selectedPassengers.includes(passenger.id) && (
-                                  <CheckCircle2 className="h-4 w-4 text-primary-foreground" />
-                                )}
+                            <div className="flex items-center justify-between">
+                              <div>
+                                <h3 className="font-semibold text-foreground text-lg">{passenger.name}</h3>
+                                <p className="text-sm text-muted-foreground mt-1">{passenger.default_pickup_location}</p>
                               </div>
-                              <div className="flex-1">
-                                <p className="font-semibold text-foreground">{passenger.name}</p>
-                                <p className="text-sm text-muted-foreground">{passenger.default_pickup_location}</p>
-                              </div>
+                              {selectedPassengers.includes(passenger.id) && (
+                                <CheckCircle2 className="h-6 w-6 text-primary" />
+                              )}
                             </div>
                           </div>
                         ))}
@@ -1023,6 +1019,10 @@ export default function Dashboard() {
 
           <TabsContent value="hours" className="mt-6">
             {currentDriver && <HoursTab driverId={currentDriver.id} />}
+          </TabsContent>
+
+          <TabsContent value="docs" className="mt-6">
+            <DocsTab />
           </TabsContent>
         </Tabs>
 
