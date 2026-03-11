@@ -288,6 +288,8 @@ export default function Dashboard() {
       toast({ title: "Please select or enter a destination", variant: "destructive" });
       return;
     }
+    // Default ETA picker to the driver's current device time when opening
+    setEta(getLocalNowTime());
     setShowEtaDialog(true);
   }
 
