@@ -53,7 +53,7 @@ export function AvailableTasksSection() {
     // Load available tasks (admin tasks only - must have task_name)
     const { data: available } = await supabase
       .from("tasks")
-      .select("id, task_name, notes, status, created_at, eta, passenger_name, pickup_location, dropoff_location")
+      .select("id, task_name, notes, status, created_at, eta, passenger_name, pickup_location, dropoff_location, driver_id")
       .eq("status", "available")
       .not("task_name", "is", null)
       .order("created_at", { ascending: false });
