@@ -10,7 +10,6 @@ import Dashboard from "./pages/Dashboard";
 import Admin from "./pages/Admin";
 import NotFound from "./pages/NotFound";
 import { ThemeProvider } from "next-themes";
-import DarkModeToggle from "@/components/DarkModeToggle";
 
 const queryClient = new QueryClient();
 
@@ -21,7 +20,6 @@ const App = () => (
         <DriverProvider>
           <Toaster />
           <Sonner />
-          <DarkModeToggle />
           <HashRouter>
             <Routes>
               <Route path="/" element={<Splash />} />
