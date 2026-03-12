@@ -17,6 +17,7 @@ import TasksBoard from "@/components/TasksBoard";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import HoursTab from "@/components/HoursTab";
 import DocsTab from "@/components/DocsTab";
+import DriverFooterDocs from "@/components/DriverFooterDocs";
 import logo from "@/assets/j-app-logo.jpg";
 import backgroundImage from "@/assets/app-background.png";
 import { Input } from "@/components/ui/input";
@@ -60,6 +61,14 @@ export default function Dashboard() {
   const [freeDestination, setFreeDestination] = useState<string>("");
   // ADDED: project picture URL state
   const [projectPictureUrl, setProjectPictureUrl] = useState<string>("");
+
+  // Footer docs buttons (Crewlist / PC-Memo / T-Memo)
+  const [footerCrewLabel, setFooterCrewLabel] = useState("Crewlist");
+  const [footerPcLabel, setFooterPcLabel] = useState("PC-Memo");
+  const [footerTLabel, setFooterTLabel] = useState("T-Memo");
+  const [footerCrewUrl, setFooterCrewUrl] = useState<string | null>(null);
+  const [footerPcUrl, setFooterPcUrl] = useState<string | null>(null);
+  const [footerTUrl, setFooterTUrl] = useState<string | null>(null);
 
   // Add a unified Back handler for trip steps
   function handleBackStep() {
@@ -180,6 +189,47 @@ export default function Dashboard() {
       .maybeSingle();
     setProjectPictureUrl(ppSetting?.setting_value || "");
 
+    // Footer buttons settings
+    const footerKeys = [
+      "footer_crewlist_label",
+      "footer_pcmemo_label",
+      "footer_tmemo_label",
+      "footer_crewlist_doc_id",
+      "footer_pcmemo_doc_id",
+      "footer_tmemo_doc_id",
+    ];
+
+    const { data: footerSettings } = await supabase
+      .from("app_settings")
+      .select("setting_key,setting_value")
+      .in("setting_key", footerKeys);
+
+    const footerMap = new Map((footerSettings || []).map((s: any) => [s.setting_key, s.setting_value]));
+
+    setFooterCrewLabel(footerMap.get("footer_crewlist_label") || "Crewlist");
+    setFooterPcLabel(footerMap.get("footer_pcmemo_label") || "PC-Memo");
+    setFooterTLabel(footerMap.get("footer_tmemo_label") || "T-Memo");
+
+    const crewId = footerMap.get("footer_crewlist_doc_id") || "";
+    const pcId = footerMap.get("footer_pcmemo_doc_id") || "";
+    const tId = footerMap.get("footer_tmemo_doc_id") || "";
+
+    const docIds = [crewId, pcId, tId].filter(Boolean);
+    if (docIds.length > 0) {
+      const { data: docs } = await supabase
+        .from("documents")
+        .select("id,file_url")
+        .in("id", docIds);
+      const docMap = new Map((docs || []).map((d: any) => [d.id, d.file_url]));
+      setFooterCrewUrl(crewId ? (docMap.get(crewId) || null) : null);
+      setFooterPcUrl(pcId ? (docMap.get(pcId) || null) : null);
+      setFooterTUrl(tId ? (docMap.get(tId) || null) : null);
+    } else {
+      setFooterCrewUrl(null);
+      setFooterPcUrl(null);
+      setFooterTUrl(null);
+    }
+
     // Apply saved order (unchanged)
     let orderedPassengers = passengersData || [];
     const { data: orderSetting } = await supabase
@@ -208,9 +258,9 @@ export default function Dashboard() {
       .from("tasks")
       .select("*")
       .eq("driver_id", currentDriver.id)
-      .neq("status", "completed")
       .is("task_name", null)
-      .order("accepted_at", { ascending: false })
+      .neq("status", "completed")
+      .order("created_at", { ascending: false })
       .limit(1)
       .maybeSingle();
 
@@ -676,7 +726,7 @@ export default function Dashboard() {
         </div>
       </header>
 
-      <div className="container mx-auto px-4 py-8 max-w-3xl space-y-8">
+      <div className="container mx-auto px-4 py-8 max-w-3xl space-y-8 pb-24">
         {/* Shared Project Banner */}
         <div className="w-full overflow-hidden rounded-xl border border-border shadow-sm bg-card">
           <div className="h-28 sm:h-36 w-full">
@@ -1108,6 +1158,14 @@ export default function Dashboard() {
           </div>
         </DialogContent>
       </Dialog>
+
+      <DriverFooterDocs
+        items={[
+          { label: footerCrewLabel, url: footerCrewUrl },
+          { label: footerPcLabel, url: footerPcUrl },
+          { label: footerTLabel, url: footerTUrl },
+        ]}
+      />
 
       </div>
     </div>

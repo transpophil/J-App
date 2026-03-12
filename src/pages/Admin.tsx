@@ -9,6 +9,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
 import { ArrowLeft, Plus, Trash2, Edit, FileText } from "lucide-react";
 import logo from "@/assets/j-app-logo.jpg";
@@ -31,6 +32,14 @@ export default function Admin() {
   const [documents, setDocuments] = useState<any[]>([]);
   const [docName, setDocName] = useState("");
   const [docFile, setDocFile] = useState<File | null>(null);
+
+  // Footer button configuration
+  const [footerCrewLabel, setFooterCrewLabel] = useState("Crewlist");
+  const [footerPcLabel, setFooterPcLabel] = useState("PC-Memo");
+  const [footerTLabel, setFooterTLabel] = useState("T-Memo");
+  const [footerCrewDocId, setFooterCrewDocId] = useState<string>("");
+  const [footerPcDocId, setFooterPcDocId] = useState<string>("");
+  const [footerTDocId, setFooterTDocId] = useState<string>("");
 
   const [showTaskDialog, setShowTaskDialog] = useState(false);
   const [showDriverDialog, setShowDriverDialog] = useState(false);
@@ -139,6 +148,14 @@ export default function Admin() {
     });
     setSettings(settingsMap);
 
+    // Footer settings
+    setFooterCrewLabel(settingsMap.footer_crewlist_label || "Crewlist");
+    setFooterPcLabel(settingsMap.footer_pcmemo_label || "PC-Memo");
+    setFooterTLabel(settingsMap.footer_tmemo_label || "T-Memo");
+    setFooterCrewDocId(settingsMap.footer_crewlist_doc_id || "");
+    setFooterPcDocId(settingsMap.footer_pcmemo_doc_id || "");
+    setFooterTDocId(settingsMap.footer_tmemo_doc_id || "");
+
     // APPLY: driver_order to drivers list in Admin view
     if (settingsMap["driver_order"]) {
       try {
@@ -217,6 +234,35 @@ export default function Admin() {
     setTemplates(templatesData);
     setDestinations(orderedDestinations);
     setDocuments(documentsRes.data || []);
+  }
+
+  async function upsertSetting(key: string, value: string) {
+    const { data: existing } = await supabase
+      .from("app_settings")
+      .select("id")
+      .eq("setting_key", key)
+      .maybeSingle();
+
+    if (existing) {
+      await supabase
+        .from("app_settings")
+        .update({ setting_value: value })
+        .eq("setting_key", key);
+    } else {
+      await supabase.from("app_settings").insert([{ setting_key: key, setting_value: value }]);
+    }
+  }
+
+  async function saveFooterButtons() {
+    await upsertSetting("footer_crewlist_label", footerCrewLabel);
+    await upsertSetting("footer_pcmemo_label", footerPcLabel);
+    await upsertSetting("footer_tmemo_label", footerTLabel);
+    await upsertSetting("footer_crewlist_doc_id", footerCrewDocId);
+    await upsertSetting("footer_pcmemo_doc_id", footerPcDocId);
+    await upsertSetting("footer_tmemo_doc_id", footerTDocId);
+
+    toast({ title: "Footer buttons updated" });
+    loadData();
   }
 
   function safeFileName(name: string) {
@@ -1178,10 +1224,7 @@ export default function Admin() {
                   </div>
                   <div className="space-y-2">
                     <Label>File</Label>
-                    <Input
-                      type="file"
-                      onChange={(e) => setDocFile(e.target.files?.[0] || null)}
-                    />
+                    <Input type="file" onChange={(e) => setDocFile(e.target.files?.[0] || null)} />
                   </div>
                 </div>
                 <div className="flex justify-end">
@@ -1221,6 +1264,84 @@ export default function Admin() {
                   )}
                 </div>
               </Card>
+
+              {/* Footer buttons configuration */}
+              <div className="mt-6">
+                <h3 className="text-xl font-bold mb-2">Footer Buttons</h3>
+                <Card className="p-6 space-y-4">
+                  <div className="grid gap-4">
+                    <div className="grid gap-3 sm:grid-cols-2">
+                      <div className="space-y-2">
+                        <Label>Crewlist button text</Label>
+                        <Input value={footerCrewLabel} onChange={(e) => setFooterCrewLabel(e.target.value)} />
+                      </div>
+                      <div className="space-y-2">
+                        <Label>Crewlist document</Label>
+                        <Select value={footerCrewDocId} onValueChange={setFooterCrewDocId}>
+                          <SelectTrigger>
+                            <SelectValue placeholder="Choose document" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {documents.map((d) => (
+                              <SelectItem key={d.id} value={d.id}>
+                                {d.name}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    </div>
+
+                    <div className="grid gap-3 sm:grid-cols-2">
+                      <div className="space-y-2">
+                        <Label>PC-Memo button text</Label>
+                        <Input value={footerPcLabel} onChange={(e) => setFooterPcLabel(e.target.value)} />
+                      </div>
+                      <div className="space-y-2">
+                        <Label>PC-Memo document</Label>
+                        <Select value={footerPcDocId} onValueChange={setFooterPcDocId}>
+                          <SelectTrigger>
+                            <SelectValue placeholder="Choose document" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {documents.map((d) => (
+                              <SelectItem key={d.id} value={d.id}>
+                                {d.name}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    </div>
+
+                    <div className="grid gap-3 sm:grid-cols-2">
+                      <div className="space-y-2">
+                        <Label>T-Memo button text</Label>
+                        <Input value={footerTLabel} onChange={(e) => setFooterTLabel(e.target.value)} />
+                      </div>
+                      <div className="space-y-2">
+                        <Label>T-Memo document</Label>
+                        <Select value={footerTDocId} onValueChange={setFooterTDocId}>
+                          <SelectTrigger>
+                            <SelectValue placeholder="Choose document" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {documents.map((d) => (
+                              <SelectItem key={d.id} value={d.id}>
+                                {d.name}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="flex justify-end">
+                    <Button onClick={saveFooterButtons}>Save Footer Buttons</Button>
+                  </div>
+                </Card>
+              </div>
             </div>
           </TabsContent>
 
