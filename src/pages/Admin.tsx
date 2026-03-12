@@ -41,6 +41,12 @@ export default function Admin() {
   const [footerPcDocId, setFooterPcDocId] = useState<string>("");
   const [footerTDocId, setFooterTDocId] = useState<string>("");
 
+  // Upload a new document directly for each footer button
+  const [footerCrewFile, setFooterCrewFile] = useState<File | null>(null);
+  const [footerPcFile, setFooterPcFile] = useState<File | null>(null);
+  const [footerTFile, setFooterTFile] = useState<File | null>(null);
+  const [uploadingFooterDoc, setUploadingFooterDoc] = useState<"crew" | "pc" | "t" | null>(null);
+
   const [showTaskDialog, setShowTaskDialog] = useState(false);
   const [showDriverDialog, setShowDriverDialog] = useState(false);
   const [showPassengerDialog, setShowPassengerDialog] = useState(false);
@@ -269,6 +275,68 @@ export default function Admin() {
     return name.replace(/[^a-zA-Z0-9._-]+/g, "_");
   }
 
+  async function uploadDocumentRecord(name: string, file: File) {
+    const path = `docs/${Date.now()}_${safeFileName(file.name)}`;
+
+    const { error: uploadError } = await supabase.storage.from("driver-docs").upload(path, file, {
+      upsert: false,
+      contentType: file.type || undefined,
+    });
+
+    if (uploadError) {
+      console.error("Document upload error:", uploadError);
+      throw uploadError;
+    }
+
+    const { data: urlData } = supabase.storage.from("driver-docs").getPublicUrl(path);
+    const fileUrl = urlData.publicUrl;
+
+    const { data: inserted, error: insertError } = await supabase
+      .from("documents")
+      .insert([{ name, file_path: path, file_url: fileUrl }])
+      .select("id")
+      .single();
+
+    if (insertError) {
+      console.error("Document insert error:", insertError);
+      throw insertError;
+    }
+
+    return inserted?.id as string;
+  }
+
+  async function uploadFooterDoc(kind: "crew" | "pc" | "t") {
+    const file = kind === "crew" ? footerCrewFile : kind === "pc" ? footerPcFile : footerTFile;
+    const label = kind === "crew" ? footerCrewLabel : kind === "pc" ? footerPcLabel : footerTLabel;
+
+    if (!file) {
+      toast({ title: "Please choose a file", variant: "destructive" });
+      return;
+    }
+
+    setUploadingFooterDoc(kind);
+    try {
+      const id = await uploadDocumentRecord(`${label} (Footer)`, file);
+      if (kind === "crew") {
+        setFooterCrewDocId(id);
+        setFooterCrewFile(null);
+      } else if (kind === "pc") {
+        setFooterPcDocId(id);
+        setFooterPcFile(null);
+      } else {
+        setFooterTDocId(id);
+        setFooterTFile(null);
+      }
+
+      toast({ title: "Document uploaded and linked" });
+      await loadData();
+    } catch (e: any) {
+      toast({ title: "Upload failed", description: e?.message ?? "", variant: "destructive" });
+    } finally {
+      setUploadingFooterDoc(null);
+    }
+  }
+
   async function uploadDocument() {
     const cleanName = docName.trim();
     if (!cleanName) {
@@ -280,36 +348,15 @@ export default function Admin() {
       return;
     }
 
-    const path = `docs/${Date.now()}_${safeFileName(docFile.name)}`;
-
-    const { error: uploadError } = await supabase.storage.from("driver-docs").upload(path, docFile, {
-      upsert: false,
-      contentType: docFile.type || undefined,
-    });
-
-    if (uploadError) {
-      console.error("Document upload error:", uploadError);
-      toast({ title: "Upload failed", variant: "destructive" });
-      return;
+    try {
+      await uploadDocumentRecord(cleanName, docFile);
+      toast({ title: "Document uploaded" });
+      setDocName("");
+      setDocFile(null);
+      await loadData();
+    } catch (e: any) {
+      toast({ title: "Upload failed", description: e?.message ?? "", variant: "destructive" });
     }
-
-    const { data: urlData } = supabase.storage.from("driver-docs").getPublicUrl(path);
-    const fileUrl = urlData.publicUrl;
-
-    const { error: insertError } = await supabase
-      .from("documents")
-      .insert([{ name: cleanName, file_path: path, file_url: fileUrl }]);
-
-    if (insertError) {
-      console.error("Document insert error:", insertError);
-      toast({ title: "Failed to save document record", variant: "destructive" });
-      return;
-    }
-
-    toast({ title: "Document uploaded" });
-    setDocName("");
-    setDocFile(null);
-    await loadData();
   }
 
   async function deleteDocument(doc: any) {
@@ -1268,8 +1315,8 @@ export default function Admin() {
               {/* Footer buttons configuration */}
               <div className="mt-6">
                 <h3 className="text-xl font-bold mb-2">Footer Buttons</h3>
-                <Card className="p-6 space-y-4">
-                  <div className="grid gap-4">
+                <Card className="p-6 space-y-5">
+                  <div className="grid gap-5">
                     <div className="grid gap-3 sm:grid-cols-2">
                       <div className="space-y-2">
                         <Label>Crewlist button text</Label>
@@ -1289,6 +1336,20 @@ export default function Admin() {
                             ))}
                           </SelectContent>
                         </Select>
+                      </div>
+                      <div className="space-y-2 sm:col-span-2">
+                        <Label>Or upload a new Crewlist document</Label>
+                        <div className="flex flex-col sm:flex-row gap-2">
+                          <Input type="file" onChange={(e) => setFooterCrewFile(e.target.files?.[0] || null)} />
+                          <Button
+                            variant="outline"
+                            className="shrink-0"
+                            onClick={() => uploadFooterDoc("crew")}
+                            disabled={!footerCrewFile || uploadingFooterDoc !== null}
+                          >
+                            {uploadingFooterDoc === "crew" ? "Uploading..." : "Upload & Link"}
+                          </Button>
+                        </div>
                       </div>
                     </div>
 
@@ -1312,6 +1373,20 @@ export default function Admin() {
                           </SelectContent>
                         </Select>
                       </div>
+                      <div className="space-y-2 sm:col-span-2">
+                        <Label>Or upload a new PC-Memo document</Label>
+                        <div className="flex flex-col sm:flex-row gap-2">
+                          <Input type="file" onChange={(e) => setFooterPcFile(e.target.files?.[0] || null)} />
+                          <Button
+                            variant="outline"
+                            className="shrink-0"
+                            onClick={() => uploadFooterDoc("pc")}
+                            disabled={!footerPcFile || uploadingFooterDoc !== null}
+                          >
+                            {uploadingFooterDoc === "pc" ? "Uploading..." : "Upload & Link"}
+                          </Button>
+                        </div>
+                      </div>
                     </div>
 
                     <div className="grid gap-3 sm:grid-cols-2">
@@ -1333,6 +1408,20 @@ export default function Admin() {
                             ))}
                           </SelectContent>
                         </Select>
+                      </div>
+                      <div className="space-y-2 sm:col-span-2">
+                        <Label>Or upload a new T-Memo document</Label>
+                        <div className="flex flex-col sm:flex-row gap-2">
+                          <Input type="file" onChange={(e) => setFooterTFile(e.target.files?.[0] || null)} />
+                          <Button
+                            variant="outline"
+                            className="shrink-0"
+                            onClick={() => uploadFooterDoc("t")}
+                            disabled={!footerTFile || uploadingFooterDoc !== null}
+                          >
+                            {uploadingFooterDoc === "t" ? "Uploading..." : "Upload & Link"}
+                          </Button>
+                        </div>
                       </div>
                     </div>
                   </div>
