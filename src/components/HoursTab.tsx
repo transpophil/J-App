@@ -482,6 +482,16 @@ export default function HoursTab({ driverId }: { driverId: string }) {
         </div>
       </Card>
 
+      <Button asChild variant="outline" className="w-full h-12 rounded-xl text-base font-semibold">
+        <a
+          href="https://www.sesam-software-gmbh.de/isapi/StdWebMiete.dll/"
+          target="_blank"
+          rel="noreferrer"
+        >
+          Sesam StdWeb App
+        </a>
+      </Button>
+
       <Card className="p-6 shadow-elevated bg-card/80 backdrop-blur-md border-border/50">
         <h3 className="text-lg font-bold text-foreground mb-4">Daily Log</h3>
 
