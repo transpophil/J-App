@@ -313,23 +313,17 @@ export default function HoursTab({
     const headerProject = projectName?.trim() || "";
     const headerDriver = driverName?.trim() || "";
 
-    // Header: project name big on top-left, driver name beside it
+    // Header: project name big on top-left, driver name below (prevents overlap on long titles)
     if (headerProject) {
       doc.setFontSize(16);
       doc.setFont("helvetica", "bold");
       doc.text(headerProject, marginX, y);
 
       if (headerDriver) {
+        y += 18;
         doc.setFontSize(12);
         doc.setFont("helvetica", "normal");
-        const projectWidth = doc.getTextWidth(headerProject);
-        const xDriver = marginX + projectWidth + 16;
-        if (xDriver + doc.getTextWidth(headerDriver) <= pageRight) {
-          doc.text(headerDriver, xDriver, y);
-        } else {
-          y += 18;
-          doc.text(headerDriver, marginX, y);
-        }
+        doc.text(headerDriver, marginX, y);
       }
     } else {
       doc.setFontSize(16);
@@ -337,9 +331,10 @@ export default function HoursTab({
       doc.text("Hours", marginX, y);
 
       if (headerDriver) {
+        y += 18;
         doc.setFontSize(12);
         doc.setFont("helvetica", "normal");
-        doc.text(headerDriver, marginX + 80, y);
+        doc.text(headerDriver, marginX, y);
       }
     }
 
