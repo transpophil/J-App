@@ -777,14 +777,13 @@ export default function Admin() {
       .filter((t) => t.status === "completed")
       .sort((a, b) => new Date(a.completed_at || 0).getTime() - new Date(b.completed_at || 0).getTime());
 
-    if (completed.length <= 20) {
-      toast({ title: "Nothing to export", description: "There are 20 or fewer completed tasks." });
+    if (completed.length === 0) {
+      toast({ title: "Nothing to export", description: "There are no completed tasks." });
       return;
     }
 
     const driverMap = new Map((drivers || []).map((d) => [d.id, d.name]));
 
-    const older = completed.slice(0, completed.length - 20);
     const headers = [
       "id",
       "task_name",
@@ -804,7 +803,8 @@ export default function Admin() {
       "eta",
       "delay_minutes",
     ];
-    const rows = older.map((t) => {
+
+    const rows = completed.map((t) => {
       const driverName = t.driver_id ? driverMap.get(t.driver_id) || "" : "";
       return [
         escapeCSV(t.id),
@@ -838,15 +838,7 @@ export default function Admin() {
     a.click();
     URL.revokeObjectURL(url);
 
-    const idsToDelete = older.map((t) => t.id);
-    const { error } = await supabase.from("tasks").delete().in("id", idsToDelete);
-    if (error) {
-      toast({ title: "Failed to clear older tasks", description: error.message, variant: "destructive" });
-      return;
-    }
-
-    toast({ title: `Exported ${older.length} tasks and kept the latest 20.` });
-    await loadData();
+    toast({ title: `Exported ${completed.length} completed tasks.` });
   }
 
   async function exportAndClearOlderCompletedPdf() {
@@ -854,14 +846,12 @@ export default function Admin() {
       .filter((t) => t.status === "completed")
       .sort((a, b) => new Date(a.completed_at || 0).getTime() - new Date(b.completed_at || 0).getTime());
 
-    if (completed.length <= 20) {
-      toast({ title: "Nothing to export", description: "There are 20 or fewer completed tasks." });
+    if (completed.length === 0) {
+      toast({ title: "Nothing to export", description: "There are no completed tasks." });
       return;
     }
 
     const driverMap = new Map((drivers || []).map((d) => [d.id, d.name]));
-
-    const older = completed.slice(0, completed.length - 20);
 
     const doc = new jsPDF({ unit: "pt", format: "a4" });
     const marginX = 40;
@@ -891,7 +881,7 @@ export default function Admin() {
       y += 16;
     };
 
-    for (const t of older) {
+    for (const t of completed) {
       if (y > 760) {
         doc.addPage();
         y = 60;
@@ -927,15 +917,7 @@ export default function Admin() {
     const timestamp = new Date().toISOString().replace(/[:.]/g, "-");
     doc.save(`completed_tasks_export_${timestamp}.pdf`);
 
-    const idsToDelete = older.map((t) => t.id);
-    const { error } = await supabase.from("tasks").delete().in("id", idsToDelete);
-    if (error) {
-      toast({ title: "Failed to clear older tasks", description: error.message, variant: "destructive" });
-      return;
-    }
-
-    toast({ title: `Exported ${older.length} tasks to PDF and kept the latest 20.` });
-    await loadData();
+    toast({ title: `Exported ${completed.length} completed tasks to PDF.` });
   }
 
   async function savePassengerOrder() {
@@ -1157,21 +1139,13 @@ export default function Admin() {
               )}
             </div>
 
-            {/* Export & clear older completed (keep latest 20) */}
+            {/* Export completed tasks */}
             <div className="flex justify-end gap-2">
-              <Button
-                variant="outline"
-                onClick={exportAndClearOlderCompleted}
-                disabled={tasks.filter((t) => t.status === "completed").length <= 20}
-              >
-                Export older completed to CSV & clear
+              <Button variant="outline" onClick={exportAndClearOlderCompleted}>
+                Export completed to CSV
               </Button>
-              <Button
-                variant="outline"
-                onClick={exportAndClearOlderCompletedPdf}
-                disabled={tasks.filter((t) => t.status === "completed").length <= 20}
-              >
-                Export older completed to PDF & clear
+              <Button variant="outline" onClick={exportAndClearOlderCompletedPdf}>
+                Export completed to PDF
               </Button>
             </div>
 
