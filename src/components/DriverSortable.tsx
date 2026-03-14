@@ -4,6 +4,7 @@ import React, { useState } from "react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Clock } from "lucide-react";
 
 interface Driver {
   id: string;
@@ -18,9 +19,16 @@ interface DriverSortableProps {
   onReorder: (next: Driver[]) => void;
   onEdit: (driver: Driver) => void;
   onDelete: (id: string) => void;
+  onViewHours?: (driver: Driver) => void;
 }
 
-const DriverSortable: React.FC<DriverSortableProps> = ({ drivers, onReorder, onEdit, onDelete }) => {
+const DriverSortable: React.FC<DriverSortableProps> = ({
+  drivers,
+  onReorder,
+  onEdit,
+  onDelete,
+  onViewHours,
+}) => {
   const [dragIndex, setDragIndex] = useState<number | null>(null);
 
   const handleDragStart = (index: number) => setDragIndex(index);
@@ -64,14 +72,21 @@ const DriverSortable: React.FC<DriverSortableProps> = ({ drivers, onReorder, onE
             </div>
           </div>
           <div className="flex gap-2">
-            <Button size="sm" variant="outline" onClick={() => onEdit(driver)}>Edit</Button>
-            <Button size="sm" variant="destructive" onClick={() => onDelete(driver.id)}>Delete</Button>
+            {onViewHours && (
+              <Button size="icon" variant="outline" onClick={() => onViewHours(driver)} aria-label="View hours">
+                <Clock className="h-4 w-4" />
+              </Button>
+            )}
+            <Button size="sm" variant="outline" onClick={() => onEdit(driver)}>
+              Edit
+            </Button>
+            <Button size="sm" variant="destructive" onClick={() => onDelete(driver.id)}>
+              Delete
+            </Button>
           </div>
         </Card>
       ))}
-      {drivers.length === 0 && (
-        <Card className="p-6 text-center text-muted-foreground">No drivers yet</Card>
-      )}
+      {drivers.length === 0 && <Card className="p-6 text-center text-muted-foreground">No drivers yet</Card>}
     </div>
   );
 };

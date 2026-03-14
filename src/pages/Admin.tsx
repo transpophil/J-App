@@ -18,6 +18,8 @@ import logo from "@/assets/j-app-logo.jpg";
 import PassengerSortable from "@/components/PassengerSortable";
 import DriverSortable from "@/components/DriverSortable";
 import DestinationSortable from "@/components/DestinationSortable";
+import DriverHoursDialog from "@/components/admin/DriverHoursDialog";
+import WeekDriversHoursExport from "@/components/admin/WeekDriversHoursExport";
 
 export default function Admin() {
   const navigate = useNavigate();
@@ -29,6 +31,9 @@ export default function Admin() {
   const [tasks, setTasks] = useState<any[]>([]);
   const [templates, setTemplates] = useState<any[]>([]);
   const [settings, setSettings] = useState<any>({});
+
+  const [showDriverHours, setShowDriverHours] = useState(false);
+  const [hoursDriver, setHoursDriver] = useState<{ id: string; name: string } | null>(null);
 
   // Import completed tasks from CSV (restore historical tasks)
   const [importTasksFile, setImportTasksFile] = useState<File | null>(null);
@@ -1395,13 +1400,21 @@ export default function Admin() {
                 setShowDriverDialog(true);
               }}
               onDelete={(id) => deleteDriver(id)}
+              onViewHours={(driver) => {
+                setHoursDriver({ id: driver.id, name: driver.name });
+                setShowDriverHours(true);
+              }}
             />
+
+            <WeekDriversHoursExport drivers={drivers.map((d) => ({ id: d.id, name: d.name }))} projectName={settings.project_name || ""} />
 
             <div className="flex justify-end">
               <Button variant="outline" onClick={saveDriverOrder}>
                 Save Order
               </Button>
             </div>
+
+            <DriverHoursDialog open={showDriverHours} onOpenChange={setShowDriverHours} driver={hoursDriver} />
           </TabsContent>
 
           <TabsContent value="passengers" className="space-y-4">
