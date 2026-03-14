@@ -782,7 +782,20 @@ export default function Admin() {
       return;
     }
 
-    const driverMap = new Map((drivers || []).map((d) => [d.id, d.name]));
+    const driverIds = Array.from(
+      new Set(completed.map((t) => (typeof t.driver_id === "string" ? t.driver_id : "")).filter(Boolean)),
+    );
+
+    const { data: driverRows, error: driverError } = await supabase
+      .from("drivers")
+      .select("id,name")
+      .in("id", driverIds);
+
+    if (driverError) {
+      console.error("Drivers load error for export:", driverError);
+    }
+
+    const driverMap = new Map((driverRows || []).map((d: any) => [d.id, d.name]));
 
     const headers = [
       "id",
@@ -851,7 +864,20 @@ export default function Admin() {
       return;
     }
 
-    const driverMap = new Map((drivers || []).map((d) => [d.id, d.name]));
+    const driverIds = Array.from(
+      new Set(completed.map((t) => (typeof t.driver_id === "string" ? t.driver_id : "")).filter(Boolean)),
+    );
+
+    const { data: driverRows, error: driverError } = await supabase
+      .from("drivers")
+      .select("id,name")
+      .in("id", driverIds);
+
+    if (driverError) {
+      console.error("Drivers load error for export:", driverError);
+    }
+
+    const driverMap = new Map((driverRows || []).map((d: any) => [d.id, d.name]));
 
     const doc = new jsPDF({ unit: "pt", format: "a4" });
     const marginX = 40;
@@ -897,7 +923,8 @@ export default function Admin() {
       line("Passenger", t.passenger_name || "");
       line("From", t.pickup_location || "");
       line("To", t.dropoff_location || "");
-      line("Driver", driverName ? `${driverName} (${t.driver_id})` : (t.driver_id || ""));
+      line("Driver name", driverName);
+      line("Driver ID", t.driver_id || "");
       line("Created", t.created_at ? new Date(t.created_at).toLocaleString() : "");
       line("Accepted", t.accepted_at ? new Date(t.accepted_at).toLocaleString() : "");
       line("Trip started", t.trip_started_at ? new Date(t.trip_started_at).toLocaleString() : "");
