@@ -125,7 +125,9 @@ function getWorkedMinutes(row: DriverHourRow) {
   const startMin = parseTimeToMinutes(row.start_time);
   let endMin = parseTimeToMinutes(end);
   if (endMin < startMin) endMin += 24 * 60;
-  return endMin - startMin;
+
+  // Daily 45m break does not count as work time.
+  return Math.max(0, endMin - startMin - 45);
 }
 
 function safeFileName(value: string) {
