@@ -69,6 +69,14 @@ function minutesToTime(minutes: number) {
   return `${String(hh).padStart(2, "0")}:${String(mm).padStart(2, "0")}`;
 }
 
+function minutesToDuration(minutes: number) {
+  const sign = minutes < 0 ? "-" : "";
+  const abs = Math.abs(minutes);
+  const hh = Math.floor(abs / 60);
+  const mm = abs % 60;
+  return `${sign}${hh}:${String(mm).padStart(2, "0")}`;
+}
+
 function addMinutes(time: string, minutesToAdd: number) {
   return minutesToTime(parseTimeToMinutes(time) + minutesToAdd);
 }
@@ -92,19 +100,47 @@ function formatWeekRange(weekStartIso: string) {
   return `${startStr} – ${endStr}`;
 }
 
-function displayEndTime(row: DriverHourRow) {
-  if (!row.start_time) return row.end_time ?? "—";
-  if (!row.end_time) return "—";
+function getEffectiveEndTime(row: DriverHourRow) {
+  if (!row.start_time || !row.end_time) return null;
 
   const requiredEnd = addMinutes(row.start_time, REQUIRED_SHIFT_MINUTES);
   const actualMin = parseTimeToMinutes(row.end_time);
   const requiredMin = parseTimeToMinutes(requiredEnd);
-
-  // If driver worked less than 10:45, show the required end time.
   return actualMin < requiredMin ? requiredEnd : row.end_time;
 }
 
-export default function HoursTab({ driverId }: { driverId: string }) {
+function displayEndTime(row: DriverHourRow) {
+  if (!row.start_time) return row.end_time ?? "—";
+  if (!row.end_time) return "—";
+
+  return getEffectiveEndTime(row) ?? "—";
+}
+
+function getWorkedMinutes(row: DriverHourRow) {
+  if (!row.start_time || !row.end_time) return null;
+
+  const end = getEffectiveEndTime(row);
+  if (!end) return null;
+
+  const startMin = parseTimeToMinutes(row.start_time);
+  let endMin = parseTimeToMinutes(end);
+  if (endMin < startMin) endMin += 24 * 60;
+  return endMin - startMin;
+}
+
+function safeFileName(value: string) {
+  return value.trim().replace(/[^a-zA-Z0-9._-]+/g, "_");
+}
+
+export default function HoursTab({
+  driverId,
+  driverName,
+  projectName,
+}: {
+  driverId: string;
+  driverName?: string;
+  projectName?: string;
+}) {
   const { toast } = useToast();
   const today = useMemo(() => getLocalIsoDate(), []);
   const defaultNowTime = useMemo(() => getLocalNowTime(), []);
@@ -263,56 +299,121 @@ export default function HoursTab({ driverId }: { driverId: string }) {
     await loadHours();
   }
 
-  function downloadWeekPdf(week: { weekStart: string; rangeLabel: string; rows: DriverHourRow[] }) {
+  function downloadAllWeeksPdf(weeks: { weekStart: string; rangeLabel: string; rows: DriverHourRow[] }[]) {
     const doc = new jsPDF({ unit: "pt", format: "a4" });
 
     const marginX = 40;
-    let y = 50;
+    const pageRight = 555;
+    const lineHeight = 18;
 
-    doc.setFontSize(16);
-    doc.text("Driver Hours", marginX, y);
+    let y = 60;
 
-    y += 18;
-    doc.setFontSize(11);
-    doc.text(`Week: ${week.rangeLabel}`, marginX, y);
+    const headerProject = projectName?.trim() || "";
+    const headerDriver = driverName?.trim() || "";
 
-    y += 10;
+    // Header: project name big on top-left, driver name beside it
+    if (headerProject) {
+      doc.setFontSize(16);
+      doc.setFont("helvetica", "bold");
+      doc.text(headerProject, marginX, y);
+
+      if (headerDriver) {
+        doc.setFontSize(12);
+        doc.setFont("helvetica", "normal");
+        const projectWidth = doc.getTextWidth(headerProject);
+        const xDriver = marginX + projectWidth + 16;
+        if (xDriver + doc.getTextWidth(headerDriver) <= pageRight) {
+          doc.text(headerDriver, xDriver, y);
+        } else {
+          y += 18;
+          doc.text(headerDriver, marginX, y);
+        }
+      }
+    } else {
+      doc.setFontSize(16);
+      doc.setFont("helvetica", "bold");
+      doc.text("Hours", marginX, y);
+
+      if (headerDriver) {
+        doc.setFontSize(12);
+        doc.setFont("helvetica", "normal");
+        doc.text(headerDriver, marginX + 80, y);
+      }
+    }
+
+    y += 16;
     doc.setDrawColor(200);
-    doc.line(marginX, y, 555, y);
-
+    doc.line(marginX, y, pageRight, y);
     y += 22;
 
-    // Column positions
-    const xDate = marginX;
-    const xStart = 220;
-    const xEnd = 340;
+    for (let i = 0; i < weeks.length; i++) {
+      const week = weeks[i];
 
-    doc.setFontSize(11);
-    doc.setFont("helvetica", "bold");
-    doc.text("Date", xDate, y);
-    doc.text("Start", xStart, y);
-    doc.text("End", xEnd, y);
-    doc.setFont("helvetica", "normal");
-
-    y += 12;
-    doc.line(marginX, y, 555, y);
-    y += 18;
-
-    const lineHeight = 18;
-    for (const r of week.rows.slice().sort((a, b) => (a.work_date < b.work_date ? 1 : -1))) {
-      if (y > 780) {
+      if (y > 740) {
         doc.addPage();
         y = 60;
       }
 
-      doc.text(formatShortDate(r.work_date), xDate, y);
-      doc.text(r.start_time ?? "—", xStart, y);
-      doc.text(displayEndTime(r), xEnd, y);
-      y += lineHeight;
+      doc.setFontSize(11);
+      doc.setFont("helvetica", "bold");
+      doc.text(`Week: ${week.rangeLabel}`, marginX, y);
+      doc.setFont("helvetica", "normal");
+      y += 14;
+
+      // Table columns
+      const xDate = marginX;
+      const xStart = 210;
+      const xEnd = 320;
+      const xHours = 450;
+
+      doc.setFont("helvetica", "bold");
+      doc.text("Date", xDate, y);
+      doc.text("Start", xStart, y);
+      doc.text("End", xEnd, y);
+      doc.text("Hours", xHours, y);
+      doc.setFont("helvetica", "normal");
+
+      y += 10;
+      doc.line(marginX, y, pageRight, y);
+      y += 18;
+
+      let weekTotalMinutes = 0;
+
+      for (const r of week.rows.slice().sort((a, b) => (a.work_date < b.work_date ? 1 : -1))) {
+        if (y > 780) {
+          doc.addPage();
+          y = 60;
+        }
+
+        const workedMin = getWorkedMinutes(r);
+        if (typeof workedMin === "number") weekTotalMinutes += workedMin;
+
+        doc.text(formatShortDate(r.work_date), xDate, y);
+        doc.text(r.start_time ?? "—", xStart, y);
+        doc.text(displayEndTime(r), xEnd, y);
+        doc.text(workedMin === null ? "—" : minutesToDuration(workedMin), xHours, y);
+        y += lineHeight;
+      }
+
+      y += 6;
+      doc.setDrawColor(220);
+      doc.line(marginX, y, pageRight, y);
+      y += 16;
+
+      doc.setFont("helvetica", "bold");
+      doc.text(`Weekly total: ${minutesToDuration(weekTotalMinutes)}`, marginX, y);
+      doc.setFont("helvetica", "normal");
+      y += 26;
+
+      if (i < weeks.length - 1) {
+        doc.setDrawColor(200);
+        doc.line(marginX, y, pageRight, y);
+        y += 24;
+      }
     }
 
-    const fileName = `hours_${week.weekStart}.pdf`;
-    doc.save(fileName);
+    const base = driverName?.trim() ? safeFileName(driverName) : safeFileName(driverId);
+    doc.save(`hours_${base}_${today}.pdf`);
   }
 
   const startSaved = Boolean(activeRow?.start_time);
@@ -505,7 +606,20 @@ export default function HoursTab({ driverId }: { driverId: string }) {
       </Button>
 
       <Card className="p-6 shadow-elevated bg-card/80 backdrop-blur-md border-border/50">
-        <h3 className="text-lg font-bold text-foreground mb-4">Daily Log</h3>
+        <div className="flex items-center justify-between gap-3 mb-4">
+          <h3 className="text-lg font-bold text-foreground">Daily Log</h3>
+          {rows.length > 0 && (
+            <Button
+              variant="outline"
+              size="sm"
+              className="gap-2"
+              onClick={() => downloadAllWeeksPdf(rowsByWeek)}
+            >
+              <Download className="h-4 w-4" />
+              Download PDF
+            </Button>
+          )}
+        </div>
 
         {rows.length === 0 ? (
           <p className="text-sm text-muted-foreground">No hours saved yet.</p>
@@ -551,13 +665,6 @@ export default function HoursTab({ driverId }: { driverId: string }) {
                       })}
                     </TableBody>
                   </Table>
-                </div>
-
-                <div className="flex justify-end">
-                  <Button variant="outline" size="sm" className="gap-2" onClick={() => downloadWeekPdf(week)}>
-                    <Download className="h-4 w-4" />
-                    Download week as PDF
-                  </Button>
                 </div>
               </div>
             ))}

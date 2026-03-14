@@ -60,6 +60,7 @@ export default function Dashboard() {
   const [freeDestination, setFreeDestination] = useState<string>("");
   // ADDED: project picture URL state
   const [projectPictureUrl, setProjectPictureUrl] = useState<string>("");
+  const [projectName, setProjectName] = useState<string>("");
 
   // Footer docs buttons (Crewlist / PC-Memo / T-Memo)
   const [footerCrewLabel, setFooterCrewLabel] = useState("Crewlist");
@@ -187,6 +188,14 @@ export default function Dashboard() {
       .eq("setting_key", "project_picture_url")
       .maybeSingle();
     setProjectPictureUrl(ppSetting?.setting_value || "");
+
+    // ADDED: Load project name from app_settings
+    const { data: pnSetting } = await supabase
+      .from("app_settings")
+      .select("setting_value")
+      .eq("setting_key", "project_name")
+      .maybeSingle();
+    setProjectName(pnSetting?.setting_value || "");
 
     // Footer buttons settings
     const footerKeys = [
@@ -1075,7 +1084,7 @@ export default function Dashboard() {
           </TabsContent>
 
           <TabsContent value="hours" className="mt-6">
-            {currentDriver && <HoursTab driverId={currentDriver.id} />}
+            {currentDriver && <HoursTab driverId={currentDriver.id} driverName={currentDriver.name} projectName={projectName} />}
           </TabsContent>
 
           <TabsContent value="docs" className="mt-6">

@@ -609,6 +609,7 @@ export default function Admin() {
       { key: "telegram_bot_token", value: settings.telegram_bot_token },
       { key: "telegram_chat_id", value: settings.telegram_chat_id },
       { key: "admin_passkey", value: settings.admin_passkey },
+      { key: "project_name", value: settings.project_name },
     ];
 
     for (const update of updates) {
@@ -1472,6 +1473,16 @@ export default function Admin() {
                       className="w-full h-full object-cover"
                     />
                   </div>
+                </div>
+
+                {/* NEW: Project name (used in driver Hours PDF) */}
+                <div>
+                  <Label>Project Name</Label>
+                  <Input
+                    value={settings.project_name || ""}
+                    onChange={(e) => setSettings({ ...settings, project_name: e.target.value })}
+                    placeholder="Enter project name"
+                  />
                 </div>
 
                 <div className="flex items-center gap-2">
