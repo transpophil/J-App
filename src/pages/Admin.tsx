@@ -11,6 +11,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
+import { jsPDF } from "jspdf";
 import { ArrowLeft, Plus, Trash2, Edit, FileText } from "lucide-react";
 import logo from "@/assets/j-app-logo.jpg";
 import PassengerSortable from "@/components/PassengerSortable";
@@ -781,6 +782,8 @@ export default function Admin() {
       return;
     }
 
+    const driverMap = new Map((drivers || []).map((d) => [d.id, d.name]));
+
     const older = completed.slice(0, completed.length - 20);
     const headers = [
       "id",
@@ -792,13 +795,18 @@ export default function Admin() {
       "status",
       "created_at",
       "accepted_at",
+      "trip_started_at",
+      "five_min_warning_sent_at",
       "completed_at",
+      "updated_at",
       "driver_id",
+      "driver_name",
       "eta",
       "delay_minutes",
     ];
-    const rows = older.map((t) =>
-      [
+    const rows = older.map((t) => {
+      const driverName = t.driver_id ? driverMap.get(t.driver_id) || "" : "";
+      return [
         escapeCSV(t.id),
         escapeCSV(t.task_name),
         escapeCSV(t.passenger_name),
@@ -808,12 +816,17 @@ export default function Admin() {
         escapeCSV(t.status),
         escapeCSV(t.created_at),
         escapeCSV(t.accepted_at),
+        escapeCSV(t.trip_started_at),
+        escapeCSV(t.five_min_warning_sent_at),
         escapeCSV(t.completed_at),
+        escapeCSV(t.updated_at),
         escapeCSV(t.driver_id),
+        escapeCSV(driverName),
         escapeCSV(t.eta),
         escapeCSV(t.delay_minutes),
-      ].join(","),
-    );
+      ].join(",");
+    });
+
     const csvContent = [headers.join(","), ...rows].join("\n");
     const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
     const timestamp = new Date().toISOString().replace(/[:.]/g, "-");
@@ -833,6 +846,95 @@ export default function Admin() {
     }
 
     toast({ title: `Exported ${older.length} tasks and kept the latest 20.` });
+    await loadData();
+  }
+
+  async function exportAndClearOlderCompletedPdf() {
+    const completed = [...(tasks || [])]
+      .filter((t) => t.status === "completed")
+      .sort((a, b) => new Date(a.completed_at || 0).getTime() - new Date(b.completed_at || 0).getTime());
+
+    if (completed.length <= 20) {
+      toast({ title: "Nothing to export", description: "There are 20 or fewer completed tasks." });
+      return;
+    }
+
+    const driverMap = new Map((drivers || []).map((d) => [d.id, d.name]));
+
+    const older = completed.slice(0, completed.length - 20);
+
+    const doc = new jsPDF({ unit: "pt", format: "a4" });
+    const marginX = 40;
+    const pageRight = 555;
+    let y = 60;
+
+    doc.setFontSize(16);
+    doc.setFont("helvetica", "bold");
+    doc.text("Completed Tasks Export", marginX, y);
+
+    y += 18;
+    doc.setFontSize(11);
+    doc.setFont("helvetica", "normal");
+    const ts = new Date().toLocaleString();
+    doc.text(`Generated: ${ts}`, marginX, y);
+
+    y += 10;
+    doc.setDrawColor(200);
+    doc.line(marginX, y, pageRight, y);
+    y += 22;
+
+    const line = (label: string, value: string) => {
+      doc.setFont("helvetica", "bold");
+      doc.text(`${label}:`, marginX, y);
+      doc.setFont("helvetica", "normal");
+      doc.text(value || "—", marginX + 110, y);
+      y += 16;
+    };
+
+    for (const t of older) {
+      if (y > 760) {
+        doc.addPage();
+        y = 60;
+      }
+
+      const driverName = t.driver_id ? driverMap.get(t.driver_id) || "" : "";
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(12);
+      doc.text(t.task_name || "Unnamed Task", marginX, y);
+      y += 18;
+      doc.setFontSize(11);
+
+      line("Passenger", t.passenger_name || "");
+      line("From", t.pickup_location || "");
+      line("To", t.dropoff_location || "");
+      line("Driver", driverName ? `${driverName} (${t.driver_id})` : (t.driver_id || ""));
+      line("Created", t.created_at ? new Date(t.created_at).toLocaleString() : "");
+      line("Accepted", t.accepted_at ? new Date(t.accepted_at).toLocaleString() : "");
+      line("Trip started", t.trip_started_at ? new Date(t.trip_started_at).toLocaleString() : "");
+      line(
+        "5-min warning",
+        t.five_min_warning_sent_at ? new Date(t.five_min_warning_sent_at).toLocaleString() : "",
+      );
+      line("Completed", t.completed_at ? new Date(t.completed_at).toLocaleString() : "");
+      line("Updated", t.updated_at ? new Date(t.updated_at).toLocaleString() : "");
+
+      y += 6;
+      doc.setDrawColor(230);
+      doc.line(marginX, y, pageRight, y);
+      y += 18;
+    }
+
+    const timestamp = new Date().toISOString().replace(/[:.]/g, "-");
+    doc.save(`completed_tasks_export_${timestamp}.pdf`);
+
+    const idsToDelete = older.map((t) => t.id);
+    const { error } = await supabase.from("tasks").delete().in("id", idsToDelete);
+    if (error) {
+      toast({ title: "Failed to clear older tasks", description: error.message, variant: "destructive" });
+      return;
+    }
+
+    toast({ title: `Exported ${older.length} tasks to PDF and kept the latest 20.` });
     await loadData();
   }
 
@@ -1056,13 +1158,20 @@ export default function Admin() {
             </div>
 
             {/* Export & clear older completed (keep latest 20) */}
-            <div className="flex justify-end">
+            <div className="flex justify-end gap-2">
               <Button
                 variant="outline"
                 onClick={exportAndClearOlderCompleted}
                 disabled={tasks.filter((t) => t.status === "completed").length <= 20}
               >
                 Export older completed to CSV & clear
+              </Button>
+              <Button
+                variant="outline"
+                onClick={exportAndClearOlderCompletedPdf}
+                disabled={tasks.filter((t) => t.status === "completed").length <= 20}
+              >
+                Export older completed to PDF & clear
               </Button>
             </div>
 
