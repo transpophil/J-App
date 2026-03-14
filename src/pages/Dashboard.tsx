@@ -11,7 +11,6 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { useToast } from "@/hooks/use-toast";
 import { sendTelegramTemplate } from "@/utils/telegram";
 import { LogOut, MapPin, Clock, CheckCircle2, AlertCircle, Navigation, ArrowLeft } from "lucide-react";
-import { TimeWheel } from "@/components/TimeWheel";
 import { TaskSection } from "@/components/TaskSection";
 import TasksBoard from "@/components/TasksBoard";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -1084,7 +1083,7 @@ export default function Dashboard() {
           </TabsContent>
         </Tabs>
 
-      {/* ETA Input Dialog simplified: only time input now */}
+      {/* ETA Input Dialog simplified: use native time input for cross-browser consistency */}
       <Dialog open={showEtaDialog} onOpenChange={setShowEtaDialog}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
@@ -1092,20 +1091,21 @@ export default function Dashboard() {
           </DialogHeader>
           <div className="space-y-4 py-4">
             <div className="space-y-2">
-              <Label>Select Time</Label>
-              <TimeWheel value={eta} onChange={setEta} />
+              <Label>ETA Time</Label>
+              <Input
+                type="time"
+                step={60}
+                value={eta}
+                onChange={(e) => setEta(e.target.value)}
+                className="h-12 text-lg"
+              />
             </div>
             <div className="grid grid-cols-2 gap-3">
-              <Button 
-                variant="outline" 
-                onClick={handleBackStep}
-              >
+              <Button variant="outline" onClick={handleBackStep}>
                 <ArrowLeft className="mr-2 h-4 w-4" />
                 Back
               </Button>
-              <Button onClick={handleConfirmTrip}>
-                Send
-              </Button>
+              <Button onClick={handleConfirmTrip}>Send</Button>
             </div>
           </div>
         </DialogContent>
