@@ -1083,29 +1083,33 @@ export default function Dashboard() {
           </TabsContent>
         </Tabs>
 
-      {/* ETA Input Dialog simplified: use native time input for cross-browser consistency */}
+      {/* ETA Input Dialog: native time input for cross-browser consistency */}
       <Dialog open={showEtaDialog} onOpenChange={setShowEtaDialog}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
-            <DialogTitle>Enter ETA</DialogTitle>
+            <DialogTitle className="text-center">Enter ETA</DialogTitle>
           </DialogHeader>
-          <div className="space-y-4 py-4">
-            <div className="space-y-2">
-              <Label>ETA Time</Label>
-              <Input
-                type="time"
-                step={60}
-                value={eta}
-                onChange={(e) => setEta(e.target.value)}
-                className="h-12 text-lg"
-              />
+          <div className="space-y-6 py-4">
+            <div className="space-y-3">
+              <Label className="block text-center">ETA Time</Label>
+              <div className="flex justify-center">
+                <Input
+                  type="time"
+                  step={60}
+                  value={eta}
+                  onChange={(e) => setEta(e.target.value)}
+                  className="h-16 w-full max-w-xs text-4xl font-bold text-center"
+                />
+              </div>
             </div>
             <div className="grid grid-cols-2 gap-3">
-              <Button variant="outline" onClick={handleBackStep}>
+              <Button variant="outline" onClick={handleBackStep} className="h-12">
                 <ArrowLeft className="mr-2 h-4 w-4" />
                 Back
               </Button>
-              <Button onClick={handleConfirmTrip}>Send</Button>
+              <Button onClick={handleConfirmTrip} className="h-12">
+                Send
+              </Button>
             </div>
           </div>
         </DialogContent>

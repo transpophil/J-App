@@ -3,7 +3,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
-import { TimeWheel } from "@/components/TimeWheel";
+import { Input } from "@/components/ui/input";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import {
@@ -424,7 +424,13 @@ export default function HoursTab({ driverId }: { driverId: string }) {
               </div>
             ) : (
               <>
-                <TimeWheel value={startTime} onChange={setStartTime} />
+                <Input
+                  type="time"
+                  step={60}
+                  value={startTime}
+                  onChange={(e) => setStartTime(e.target.value)}
+                  className="h-14 text-3xl font-bold text-center"
+                />
                 <Button onClick={saveStart} disabled={savingStart} className="w-full">
                   {savingStart ? "Saving..." : "Save Start"}
                 </Button>
@@ -455,7 +461,13 @@ export default function HoursTab({ driverId }: { driverId: string }) {
               </div>
             ) : (
               <>
-                <TimeWheel value={endTime} onChange={setEndTime} />
+                <Input
+                  type="time"
+                  step={60}
+                  value={endTime}
+                  onChange={(e) => setEndTime(e.target.value)}
+                  className="h-14 text-3xl font-bold text-center"
+                />
                 <Button
                   onClick={saveEnd}
                   disabled={savingEnd || !startSaved}
