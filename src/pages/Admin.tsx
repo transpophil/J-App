@@ -12,6 +12,7 @@ import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
 import { jsPDF } from "jspdf";
+import Papa from "papaparse";
 import { ArrowLeft, Plus, Trash2, Edit, FileText } from "lucide-react";
 import logo from "@/assets/j-app-logo.jpg";
 import PassengerSortable from "@/components/PassengerSortable";
@@ -28,6 +29,10 @@ export default function Admin() {
   const [tasks, setTasks] = useState<any[]>([]);
   const [templates, setTemplates] = useState<any[]>([]);
   const [settings, setSettings] = useState<any>({});
+
+  // Import completed tasks from CSV (restore historical tasks)
+  const [importTasksFile, setImportTasksFile] = useState<File | null>(null);
+  const [importingTasks, setImportingTasks] = useState(false);
 
   // ADDED: documents for driver Docs tab
   const [documents, setDocuments] = useState<any[]>([]);
@@ -1009,6 +1014,117 @@ export default function Admin() {
     toast({ title: "Destination order saved" });
   }
 
+  function toNullIfEmpty(v: any) {
+    const s = v === null || v === undefined ? "" : String(v).trim();
+    return s.length === 0 ? null : s;
+  }
+
+  async function importTasksFromCsv() {
+    if (!importTasksFile) {
+      toast({ title: "Please choose a CSV file", variant: "destructive" });
+      return;
+    }
+
+    setImportingTasks(true);
+    try {
+      const parsed = await new Promise<Papa.ParseResult<Record<string, any>>>((resolve, reject) => {
+        Papa.parse(importTasksFile, {
+          header: true,
+          skipEmptyLines: true,
+          complete: (results) => resolve(results as Papa.ParseResult<Record<string, any>>),
+          error: (err) => reject(err),
+        });
+      });
+
+      if (parsed.errors?.length) {
+        console.error("CSV parse errors:", parsed.errors);
+      }
+
+      const data = (parsed.data || []).filter(Boolean);
+      if (data.length === 0) {
+        toast({ title: "No rows found in CSV", variant: "destructive" });
+        return;
+      }
+
+      const records: any[] = [];
+      let skipped = 0;
+
+      for (const row of data) {
+        const id = toNullIfEmpty(row.id);
+        const passenger_name = toNullIfEmpty(row.passenger_name);
+        const pickup_location = toNullIfEmpty(row.pickup_location);
+        const dropoff_location = toNullIfEmpty(row.dropoff_location);
+
+        if (!passenger_name || !pickup_location || !dropoff_location) {
+          skipped += 1;
+          continue;
+        }
+
+        const delayRaw = toNullIfEmpty(row.delay_minutes);
+        const delayMinutes = delayRaw ? Number(delayRaw) : null;
+
+        const passengerIdsRaw = toNullIfEmpty(row.passenger_ids);
+        let passengerIds: string[] | null = null;
+        if (passengerIdsRaw) {
+          try {
+            const parsedIds = JSON.parse(passengerIdsRaw);
+            if (Array.isArray(parsedIds)) passengerIds = parsedIds;
+          } catch {
+            // ignore
+          }
+        }
+
+        const rec: any = {
+          passenger_name,
+          pickup_location,
+          dropoff_location,
+          notes: toNullIfEmpty(row.notes),
+          status: toNullIfEmpty(row.status) || "completed",
+          driver_id: toNullIfEmpty(row.driver_id),
+          eta: toNullIfEmpty(row.eta),
+          delay_minutes: Number.isFinite(delayMinutes as any) ? delayMinutes : null,
+          accepted_at: toNullIfEmpty(row.accepted_at),
+          trip_started_at: toNullIfEmpty(row.trip_started_at),
+          five_min_warning_sent_at: toNullIfEmpty(row.five_min_warning_sent_at),
+          completed_at: toNullIfEmpty(row.completed_at),
+          created_at: toNullIfEmpty(row.created_at),
+          updated_at: toNullIfEmpty(row.updated_at),
+          task_name: toNullIfEmpty(row.task_name),
+        };
+
+        if (passengerIds) rec.passenger_ids = passengerIds;
+        if (id) rec.id = id;
+
+        records.push(rec);
+      }
+
+      if (records.length === 0) {
+        toast({ title: "No valid rows to import", description: "Required: passenger_name, pickup_location, dropoff_location." });
+        return;
+      }
+
+      const chunkSize = 200;
+      for (let i = 0; i < records.length; i += chunkSize) {
+        const chunk = records.slice(i, i + chunkSize);
+        const { error } = await supabase.from("tasks").upsert(chunk, { onConflict: "id" });
+        if (error) {
+          console.error("Task import error:", error);
+          toast({ title: "Import failed", description: error.message, variant: "destructive" });
+          return;
+        }
+      }
+
+      setImportTasksFile(null);
+      toast({ title: "Import complete", description: `Imported ${records.length} tasks. Skipped ${skipped}.` });
+      await loadData();
+    } catch (e: any) {
+      console.error("Import failed:", e);
+      toast({ title: "Import failed", description: e?.message || "Unknown error", variant: "destructive" });
+    } finally {
+      setImportingTasks(false);
+    }
+  }
+
   if (!isAuthenticated) {
     return (
       <div className="min-h-screen flex items-center justify-center p-4 bg-gradient-to-br from-background via-muted/20 to-background">
@@ -1084,6 +1200,29 @@ export default function Admin() {
                 Create Task
               </Button>
             </div>
+
+            {/* Restore/import tasks from CSV */}
+            <Card className="p-4">
+              <div className="flex flex-col sm:flex-row sm:items-end gap-3 justify-between">
+                <div className="space-y-1">
+                  <div className="font-semibold text-foreground">Restore tasks from CSV</div>
+                  <div className="text-sm text-muted-foreground">
+                    If older tasks were deleted, you can re-import them here from a previously exported CSV.
+                  </div>
+                </div>
+                <div className="flex flex-col sm:flex-row gap-2">
+                  <Input
+                    type="file"
+                    accept="text/csv,.csv"
+                    onChange={(e) => setImportTasksFile(e.target.files?.[0] || null)}
+                    className="sm:w-[320px]"
+                  />
+                  <Button onClick={importTasksFromCsv} disabled={!importTasksFile || importingTasks}>
+                    {importingTasks ? "Importing..." : "Import CSV"}
+                  </Button>
+                </div>
+              </div>
+            </Card>
 
             {/* Active Tasks - Show all tasks except completed ones */}
             <div className="space-y-3">
